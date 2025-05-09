@@ -1,0 +1,116 @@
+&GLOBAL
+  PROJECT zundel
+  PRINT_LEVEL LOW
+  RUN_TYPE MD
+&END GLOBAL
+
+&MOTION
+  &MD
+    STEPS 10000
+    TIMESTEP [fs] 0.5
+    #ENSEMBLE NVE
+    ENSEMBLE NVT
+    &THERMOSTAT
+      #REGION GLOBAL
+      REGION MASSIVE
+      TYPE CSVR
+      &CSVR
+        TIMECON [fs] 200
+      &END CSVR
+      #TYPE NOSE
+      #&NOSE
+      #  TIMECON [fs] 200
+      #  MTS 5
+      #&END NOSE
+    &END THERMOSTAT
+  &END MD
+  &PRINT
+    &TRAJECTORY
+      &EACH
+        MD 1
+      &END EACH
+    &END TRAJECTORY
+    &VELOCITIES
+      &EACH
+        MD 1
+      &END EACH
+    &END VELOCITIES
+    &FORCES
+      &EACH
+        MD 1
+      &END EACH
+    &END FORCES
+    &RESTART OFF
+    &END RESTART
+    &RESTART_HISTORY OFF
+    &END RESTART_HISTORY
+  &END PRINT
+&END MOTION
+
+&FORCE_EVAL
+
+  &DFT
+    CHARGE 1
+    &QS
+      METHOD DFTB
+      &DFTB
+        DIAGONAL_DFTB3
+        HB_SR_GAMMA
+        &PARAMETER
+          PARAM_FILE_PATH 3ob-3-1
+          PARAM_FILE_NAME scc_parameter
+          HB_SR_PARAM 4.0
+        &END PARAMETER
+      &END DFTB
+      EXTRAPOLATION_ORDER 3
+    &END QS
+    &SCF
+      MAX_SCF 200
+      EPS_SCF 1.0E-7
+      SCF_GUESS ATOMIC
+      &MIXING
+      &END
+      &PRINT
+        &RESTART OFF
+        &END RESTART
+      &END PRINT
+    &END SCF
+    &POISSON
+      PERIODIC NONE
+      POISSON_SOLVER ANALYTIC
+    &END POISSON
+    &PRINT
+      &MULLIKEN
+        FILENAME charge
+        &EACH
+          MD 1
+        &END EACH
+      &END MULLIKEN
+      &MOMENTS
+        PERIODIC FALSE
+        REFERENCE COM
+        &EACH
+          MD 1
+        &END EACH
+      &END MOMENTS
+    &END PRINT
+  &END DFT
+
+  &SUBSYS
+    &TOPOLOGY
+      COORD_FILE_NAME H5O2+-MP2-6311++Gss-10.0A.xyz
+      COORD_FILE_FORMAT XYZ
+    &END TOPOLOGY
+    &CELL
+      ABC 10.0 10.0 10.0
+      PERIODIC NONE
+    &END CELL
+    &KIND H
+      DFTB3_PARAM -0.1857
+    &END KIND
+    &KIND O
+      DFTB3_PARAM -0.1575
+    &END KIND
+  &END SUBSYS
+
+&END FORCE_EVAL
