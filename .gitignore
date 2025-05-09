@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Environment and package files
+env/
+.venv/
+.conda/
+*.env
+*.conda
+*.egg-info/
+
+# VSCode or other editor settings
+.vscode/
+
