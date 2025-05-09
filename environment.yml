@@ -1,0 +1,12 @@
+name: alt # active learning tutorial
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - jupyter
+  - numpy
+  - matplotlib
+  - pytorch>= 1.12
+  - pip
+  - pip:
+      - mace-torch
