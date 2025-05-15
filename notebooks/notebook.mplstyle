@@ -1,0 +1,6 @@
+figure.dpi: 150
+axes.grid: True
+lines.linewidth: 1.0
+grid.linewidth: 0.25
+xtick.bottom: False
+ytick.left: False
