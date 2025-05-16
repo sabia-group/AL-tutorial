@@ -15,3 +15,5 @@ env/
 # VSCode or other editor settings
 .vscode/
 
+# Ignore all __pycache__ folders
+**/__pycache__/
