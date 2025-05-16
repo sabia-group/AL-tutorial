@@ -21,7 +21,6 @@ conda env create -f environment.yml
 Activate the `alt` environment (Active Learning Tutorial):
 ```bash
 conda activate alt
-pip install -e .
 ```
 
 Check that the main packages that we need are installed:
