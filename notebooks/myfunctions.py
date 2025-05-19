@@ -1,9 +1,11 @@
 import shutil
 import os, sys
+import tqdm
 import numpy as np
 from typing import List, Dict, Union
 from ase import Atoms
 from ase.io import read, write
+from contextlib import redirect_stdout, redirect_stderr
 from mace.cli.run_train import main as mace_run_train_main          # train a MACE model
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
@@ -23,7 +25,9 @@ def train_mace(config:str):
     """Train a MACE model using the provided configuration file.
     """
     sys.argv = ["program", "--config", config]
-    mace_run_train_main()
+    with open(os.devnull, 'w') as fnull:
+        with redirect_stdout(fnull), redirect_stderr(fnull):
+            mace_run_train_main()
     
 def eval_mace(model:str,infile:str,outfile:str):
     """Evaluate a MACE model.
@@ -102,3 +106,74 @@ def _correct_read(atoms:Atoms)->Atoms:
                 atoms.info[key] = value
     atoms.calc = None 
     return atoms
+
+def run_qbc(fns_committee, fn_candidates, fn_train_init, n_iter, n_add_iter=10, recalculate_selected=False, calculator=None):
+    """Main QbC loop."""
+    # TODO: Add the possibility of attaching a ASE calculator for later when we need to address unlabeled data.
+    # TODO: think about striding the candidates to make it more efficient
+    # TODO: start from training set size 0?
+
+    print(f'Starting QbC.')
+    print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
+
+    #os.makedirs('QbC', exist_ok=True)
+
+    candidates = read(fn_candidates, index=':')
+    training_set = []
+    progress_disagreement = []
+    for _ in tqdm(range(n_iter)):
+
+        # predict disagreement on all candidates
+        print(f'Predicting committee disagreement across the candidate pool.')
+        energies = []
+        for n, model in enumerate(fns_committee):
+            fn_dump = f'eval_train_{n:02d}.extxyz'
+            eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
+            e = extxyz2energy(fn_dump)
+            energies.append(e)
+        energies = np.array(energies)
+        disagreement = energies.std(axis=0)
+        avg_disagreement_pool = disagreement.mean()
+
+        # pick the `n_add_iter` highest-disagreement structures
+        print(f'Picking {n_add_iter:d} new highest-disagreement data points.')
+        idcs_selected = np.argsort(disagreement)[-n_add_iter:]
+        print(idcs_selected)
+        avg_disagreement_selected = (disagreement[idcs_selected]).mean()
+        progress_disagreement.append(np.array([avg_disagreement_selected, avg_disagreement_pool]))
+        # TODO: an ASE calculator will come here
+        if recalculate_selected:
+            assert calculator is not None, 'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
+            print(f'Recalculating ab initio energies and forces for new data points.')
+            for structure in candidates[idcs_selected]:
+                structure.calc = calculator
+                structure.get_potential_energy()
+                structure.get_forces()
+        #training_set.append([candidates[i] for i in idcs_selected])
+        #candidates = np.delete(candidates, idcs_selected)
+        # TODO: super ugly, make it better
+        for i in idcs_selected:
+            training_set.append(candidates[i])
+        for i in idcs_selected:
+            del candidates[i]
+
+        # dump files with structures
+        write('train-iter.extxyz', training_set, format='extxyz')
+        write('candidates.extxyz', candidates, format='extxyz')
+
+        # retrain the committee with the enriched training set
+        print(f'Retraining committee.')
+        # TODO: add multiprocessing
+        # TODO: add model refinement
+        for n in range(len(fns_committee)):
+            train_mace(f"config/config.{n}.yml")
+
+        # update the candidate file name
+        fn_candidates = 'candidates.extxyz'
+
+        print(f'Status at the end of this QbC iteration: Disagreement (pool) [eV]    Disagreement (selected) [eV]')
+        print(f'                                         {avg_disagreement_pool:06f} {avg_disagreement_selected:06f}')
+
+    # dump final training set
+    write('train-final.extxyz', training_set, format='extxyz')
+    np.savetxt('disagreement.txt', progress_disagreement)
