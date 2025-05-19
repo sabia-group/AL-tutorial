@@ -110,7 +110,7 @@ def _correct_read(atoms:Atoms)->Atoms:
 
 def run_qbc(fns_committee:List[str],
             fn_candidates:str,
-            fn_train_init:str, # why do we need this?
+            # fn_train_init:str, # why do we need this?
             n_iter:int,
             config:str,
             ofolder:str="qbc-work", 
@@ -125,8 +125,8 @@ def run_qbc(fns_committee:List[str],
         List of MACE model files.
     fn_candidates : str
         Filename of the candidates file.
-    fn_train_init : str
-        Filename of the initial training set.
+    # fn_train_init : str
+    #     Filename of the initial training set.
     n_iter : int
         Number of QbC iterations.
     config: str
@@ -148,8 +148,14 @@ def run_qbc(fns_committee:List[str],
     print(f'Starting QbC.')
     print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
 
-    #os.makedirs('QbC', exist_ok=True)
+    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures"]
+    
+    for f in folders:
+        os.makedirs(f, exist_ok=True)
 
+    shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
+    fn_candidates = f'{ofolder}/candidates.start.extxyz'
+    
     candidates:List[Atoms] = read(fn_candidates, index=':')
     training_set = []
     progress_disagreement = []
@@ -157,15 +163,15 @@ def run_qbc(fns_committee:List[str],
 
         # predict disagreement on all candidates
         print(f'Predicting committee disagreement across the candidate pool.')
-        energies = []
+        energies = [None]*len(fns_committee)
         for n, model in enumerate(fns_committee):
-            fn_dump = f'{ofolder}/eval_train_{n:02d}.extxyz'
+            fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
             e = extxyz2energy(fn_dump)
-            energies.append(e)
+            energies[n] = e
         energies = np.array(energies)
-        disagreement = energies.std(axis=0)
-        avg_disagreement_pool = disagreement.mean()
+        disagreement = np.std(energies,axis=0)
+        avg_disagreement_pool = np.mean(disagreement)
 
         # pick the `n_add_iter` highest-disagreement structures
         print(f'Picking {n_add_iter:d} new highest-disagreement data points.')
@@ -173,6 +179,7 @@ def run_qbc(fns_committee:List[str],
         print(idcs_selected)
         avg_disagreement_selected = (disagreement[idcs_selected]).mean()
         progress_disagreement.append(np.array([avg_disagreement_selected, avg_disagreement_pool]))
+        
         # TODO: an ASE calculator will come here
         if recalculate_selected:
             assert calculator is not None, 'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
@@ -181,6 +188,7 @@ def run_qbc(fns_committee:List[str],
                 structure.calc = calculator
                 structure.get_potential_energy()
                 structure.get_forces()
+                
         #training_set.append([candidates[i] for i in idcs_selected])
         #candidates = np.delete(candidates, idcs_selected)
         # TODO: super ugly, make it better
@@ -190,10 +198,15 @@ def run_qbc(fns_committee:List[str],
             del candidates[i]
 
         # dump files with structures
-        new_training_set = f'{ofolder}/train-iter.n={iter}.extxyz'
-        new_candidates = f'{ofolder}/candidates.n={iter}.extxyz'
+        new_training_set = f'{ofolder}/structures/train-iter.n={iter}.extxyz'
+        new_candidates = f'{ofolder}/structures/candidates.n={iter}.extxyz'
         write(new_training_set, training_set, format='extxyz')
         write(new_candidates, candidates, format='extxyz')
+        
+        # update the training set file name
+        shutil.copy(new_training_set, f'{ofolder}/train-iter.extxyz') # MACE will use this file to train
+        # update the candidate file name
+        fn_candidates = new_candidates
 
         # retrain the committee with the enriched training set
         print(f'Retraining committee.')
@@ -202,9 +215,7 @@ def run_qbc(fns_committee:List[str],
         for n in range(len(fns_committee)):
             train_mace(f"{config}/config.{n}.yml")
 
-        # update the candidate file name
-        fn_candidates = new_candidates
-
+        
         print(f'Status at the end of this QbC iteration: Disagreement (pool) [eV]    Disagreement (selected) [eV]')
         print(f'                                         {avg_disagreement_pool:06f} {avg_disagreement_selected:06f}')
 
