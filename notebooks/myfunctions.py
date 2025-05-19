@@ -1,10 +1,11 @@
 import shutil
 import os, sys
-import tqdm
+from tqdm import tqdm
 import numpy as np
 from typing import List, Dict, Union
 from ase import Atoms
 from ase.io import read, write
+from ase.calculators.calculator import Calculator
 from contextlib import redirect_stdout, redirect_stderr
 from mace.cli.run_train import main as mace_run_train_main          # train a MACE model
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
@@ -107,8 +108,39 @@ def _correct_read(atoms:Atoms)->Atoms:
     atoms.calc = None 
     return atoms
 
-def run_qbc(fns_committee, fn_candidates, fn_train_init, n_iter, n_add_iter=10, recalculate_selected=False, calculator=None):
-    """Main QbC loop."""
+def run_qbc(fns_committee:List[str],
+            fn_candidates:str,
+            fn_train_init:str, # why do we need this?
+            n_iter:int,
+            config:str,
+            ofolder:str="qbc-work", 
+            n_add_iter:int=10,
+            recalculate_selected:bool=False,
+            calculator:Calculator=None):
+    """
+    Main QbC loop.
+    Parameters
+    ----------
+    fns_committee : List[str]
+        List of MACE model files.
+    fn_candidates : str
+        Filename of the candidates file.
+    fn_train_init : str
+        Filename of the initial training set.
+    n_iter : int
+        Number of QbC iterations.
+    config: str
+        Folder where the MACE configuration files are stored.
+        The code will expect the files to be named config.0.yml, config.1.yml, etc.
+    ofolder: str
+        Folder where to store the QbC results.
+    n_add_iter : int
+        Number of structures to add to the training set in each iteration.
+    recalculate_selected : bool
+        If True, the selected structures will be recalculated using the ASE calculator.
+    calculator : ASE calculator
+        ASE calculator to use for the recalculation of the selected structures.
+    """
     # TODO: Add the possibility of attaching a ASE calculator for later when we need to address unlabeled data.
     # TODO: think about striding the candidates to make it more efficient
     # TODO: start from training set size 0?
@@ -118,16 +150,16 @@ def run_qbc(fns_committee, fn_candidates, fn_train_init, n_iter, n_add_iter=10, 
 
     #os.makedirs('QbC', exist_ok=True)
 
-    candidates = read(fn_candidates, index=':')
+    candidates:List[Atoms] = read(fn_candidates, index=':')
     training_set = []
     progress_disagreement = []
-    for _ in tqdm(range(n_iter)):
+    for iter in tqdm(range(n_iter)):
 
         # predict disagreement on all candidates
         print(f'Predicting committee disagreement across the candidate pool.')
         energies = []
         for n, model in enumerate(fns_committee):
-            fn_dump = f'eval_train_{n:02d}.extxyz'
+            fn_dump = f'{ofolder}/eval_train_{n:02d}.extxyz'
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
             e = extxyz2energy(fn_dump)
             energies.append(e)
@@ -158,22 +190,24 @@ def run_qbc(fns_committee, fn_candidates, fn_train_init, n_iter, n_add_iter=10, 
             del candidates[i]
 
         # dump files with structures
-        write('train-iter.extxyz', training_set, format='extxyz')
-        write('candidates.extxyz', candidates, format='extxyz')
+        new_training_set = f'{ofolder}/train-iter.n={iter}.extxyz'
+        new_candidates = f'{ofolder}/candidates.n={iter}.extxyz'
+        write(new_training_set, training_set, format='extxyz')
+        write(new_candidates, candidates, format='extxyz')
 
         # retrain the committee with the enriched training set
         print(f'Retraining committee.')
         # TODO: add multiprocessing
         # TODO: add model refinement
         for n in range(len(fns_committee)):
-            train_mace(f"config/config.{n}.yml")
+            train_mace(f"{config}/config.{n}.yml")
 
         # update the candidate file name
-        fn_candidates = 'candidates.extxyz'
+        fn_candidates = new_candidates
 
         print(f'Status at the end of this QbC iteration: Disagreement (pool) [eV]    Disagreement (selected) [eV]')
         print(f'                                         {avg_disagreement_pool:06f} {avg_disagreement_selected:06f}')
 
     # dump final training set
-    write('train-final.extxyz', training_set, format='extxyz')
-    np.savetxt('disagreement.txt', progress_disagreement)
+    write(f'{ofolder}/train-final.extxyz', training_set, format='extxyz')
+    np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
