@@ -148,7 +148,7 @@ def run_qbc(fns_committee:List[str],
     print(f'Starting QbC.')
     print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
 
-    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures"]
+    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models"]
     
     for f in folders:
         os.makedirs(f, exist_ok=True)
