@@ -176,11 +176,11 @@ def run_qbc(fns_committee:List[str],
     # QbC loop
     #-------------------------#
     
-    for iter in tqdm(range(n_iter)):
+    for iter in range(n_iter):
         start_time = time.time()
         start_datetime = datetime.now()
-        print(f'\n----------------------------------')
-        print(f'Start of QbC iteration ({iter:d}/{n_iter:d})')
+        print(f'\n\t--------------------------------------------------------------------')
+        print(f'\tStart of QbC iteration {iter+1:d}/{n_iter:d}\n')
         print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
     
         # predict disagreement on all candidates
@@ -251,7 +251,7 @@ def run_qbc(fns_committee:List[str],
             for n in range(n_committee):
                 train_single_model(n)
 
-        print(f'\tResults of QbC iteration ({iter:d}/{n_iter:d}):')
+        print(f'\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
         print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
         
@@ -259,7 +259,7 @@ def run_qbc(fns_committee:List[str],
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        print(f'\tEnd of QbC iteration ({iter:d}/{n_iter:d})')
+        print(f'\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
         print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         print(f'\tDuration:   {elapsed:.2f} seconds')
         
