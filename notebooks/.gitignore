@@ -5,6 +5,7 @@ models/
 results/
 structures/
 aims/
+eval/
 qbc-work/
 *.extxyz
 *.txt
