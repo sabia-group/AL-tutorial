@@ -1,5 +1,8 @@
 import shutil
 import os, sys
+import multiprocessing
+from datetime import datetime
+import time
 from tqdm import tqdm
 import numpy as np
 from typing import List, Dict, Union
@@ -34,13 +37,17 @@ def eval_mace(model:str,infile:str,outfile:str):
     """Evaluate a MACE model.
     """
     sys.argv = ["program", "--config", infile,"--output",outfile,"--model",model]
-    mace_eval_configs_main()
+    with open(os.devnull, 'w') as fnull:
+        with redirect_stdout(fnull), redirect_stderr(fnull):
+            mace_eval_configs_main()
 
 def retrain_mace(config:str):
     """Train a MACE model using the provided configuration file.
     """
     sys.argv = ["program", "--config", config]
-    mace_run_train_main()
+    with open(os.devnull, 'w') as fnull:
+        with redirect_stdout(fnull), redirect_stderr(fnull):
+            mace_run_train_main()
     
 def run_aims(structures:List[Atoms],folder:str,command:str,control:str)->List[Atoms]:
     """
@@ -108,6 +115,10 @@ def _correct_read(atoms:Atoms)->Atoms:
     atoms.calc = None 
     return atoms
 
+GLOBAL_CONFIG_PATH = None
+def train_single_model(n_config):
+    train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
+
 def run_qbc(fns_committee:List[str],
             fn_candidates:str,
             # fn_train_init:str, # why do we need this?
@@ -116,7 +127,8 @@ def run_qbc(fns_committee:List[str],
             ofolder:str="qbc-work", 
             n_add_iter:int=10,
             recalculate_selected:bool=False,
-            calculator:Calculator=None):
+            calculator:Calculator=None,
+            parallel:bool=True):
     """
     Main QbC loop.
     Parameters
@@ -159,10 +171,20 @@ def run_qbc(fns_committee:List[str],
     candidates:List[Atoms] = read(fn_candidates, index=':')
     training_set = []
     progress_disagreement = []
+    
+    #-------------------------#
+    # QbC loop
+    #-------------------------#
+    
     for iter in tqdm(range(n_iter)):
-
+        start_time = time.time()
+        start_datetime = datetime.now()
+        print(f'\n----------------------------------')
+        print(f'Start of QbC iteration ({iter:d}/{n_iter:d})')
+        print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+    
         # predict disagreement on all candidates
-        print(f'Predicting committee disagreement across the candidate pool.')
+        print(f'\tPredicting committee disagreement across the candidate pool.')
         energies = [None]*len(fns_committee)
         for n, model in enumerate(fns_committee):
             fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
@@ -171,19 +193,22 @@ def run_qbc(fns_committee:List[str],
             energies[n] = e
         energies = np.array(energies)
         disagreement = np.std(energies,axis=0)
-        avg_disagreement_pool = np.mean(disagreement)
+        avg_disagreement_pool = np.mean(disagreement) # orange
 
         # pick the `n_add_iter` highest-disagreement structures
-        print(f'Picking {n_add_iter:d} new highest-disagreement data points.')
+        print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
         idcs_selected = np.argsort(disagreement)[-n_add_iter:]
-        print(idcs_selected)
-        avg_disagreement_selected = (disagreement[idcs_selected]).mean()
+        print("\t",idcs_selected)
+        avg_disagreement_selected = (disagreement[idcs_selected]).mean() # blue
         progress_disagreement.append(np.array([avg_disagreement_selected, avg_disagreement_pool]))
         
+        #-------------------------#
+        # Recalculate energies and forces for selected structures
+        #-------------------------#
         # TODO: an ASE calculator will come here
         if recalculate_selected:
             assert calculator is not None, 'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
-            print(f'Recalculating ab initio energies and forces for new data points.')
+            print(f'\tRecalculating ab initio energies and forces for new data points.')
             for structure in candidates[idcs_selected]:
                 structure.calc = calculator
                 structure.get_potential_energy()
@@ -208,17 +233,41 @@ def run_qbc(fns_committee:List[str],
         # update the candidate file name
         fn_candidates = new_candidates
 
+        #-------------------------#
+        # Training
+        #-------------------------#
         # retrain the committee with the enriched training set
-        print(f'Retraining committee.')
-        # TODO: add multiprocessing
-        # TODO: add model refinement
-        for n in range(len(fns_committee)):
-            train_mace(f"{config}/config.{n}.yml")
-
+        print(f'\tRetraining committee.')
+        # TODO: add model refinement: check that it is actually done
+        n_committee = len(fns_committee)
+        global GLOBAL_CONFIG_PATH
+        GLOBAL_CONFIG_PATH = config
         
-        print(f'Status at the end of this QbC iteration: Disagreement (pool) [eV]    Disagreement (selected) [eV]')
-        print(f'                                         {avg_disagreement_pool:06f} {avg_disagreement_selected:06f}')
+        if parallel: # parallel version: it should take around 25s 
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+                pool.map(train_single_model, range(n_committee))
+                
+        else: # serial version: it should take around 1m
+            for n in range(n_committee):
+                train_single_model(n)
 
+        print(f'\tResults of QbC iteration ({iter:d}/{n_iter:d}):')
+        print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
+        print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
+        
+        end_time = time.time()
+        end_datetime = datetime.now()
+        elapsed = end_time - start_time
+
+        print(f'\tEnd of QbC iteration ({iter:d}/{n_iter:d})')
+        print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+        print(f'\tDuration:   {elapsed:.2f} seconds')
+        
+    #-------------------------#
+    # Finalize
+    #-------------------------#
+            
     # dump final training set
     write(f'{ofolder}/train-final.extxyz', training_set, format='extxyz')
     np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
+    
