@@ -3,7 +3,6 @@ import os, sys
 import multiprocessing
 from datetime import datetime
 import time
-from tqdm import tqdm
 import numpy as np
 from typing import List, Dict, Union
 from ase import Atoms
@@ -121,9 +120,9 @@ def train_single_model(n_config):
 
 def run_qbc(fns_committee:List[str],
             fn_candidates:str,
-            # fn_train_init:str, # why do we need this?
             n_iter:int,
             config:str,
+            test_dataset:str=None,
             ofolder:str="qbc-work", 
             n_add_iter:int=10,
             recalculate_selected:bool=False,
@@ -137,8 +136,6 @@ def run_qbc(fns_committee:List[str],
         List of MACE model files.
     fn_candidates : str
         Filename of the candidates file.
-    # fn_train_init : str
-    #     Filename of the initial training set.
     n_iter : int
         Number of QbC iterations.
     config: str
@@ -158,7 +155,12 @@ def run_qbc(fns_committee:List[str],
     # TODO: start from training set size 0?
 
     print(f'Starting QbC.')
-    print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
+    print(f"Number of models: {len(fns_committee):d}")
+    print(f"Number of iterations: {n_iter:d}")
+    print(f"Number of new candidates at each iteration: {n_add_iter:d}")
+    print(f"Candidates file: {fn_candidates}")
+    print(f"Test file: {test_dataset}")
+    # print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
 
     folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models"]
     
@@ -191,6 +193,10 @@ def run_qbc(fns_committee:List[str],
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
             e = extxyz2energy(fn_dump)
             energies[n] = e
+            
+            if test_dataset is not None:
+                eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
+            
         energies = np.array(energies)
         disagreement = np.std(energies,axis=0)
         avg_disagreement_pool = np.mean(disagreement) # orange
@@ -198,9 +204,16 @@ def run_qbc(fns_committee:List[str],
         # pick the `n_add_iter` highest-disagreement structures
         print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
         idcs_selected = np.argsort(disagreement)[-n_add_iter:]
-        print("\t",idcs_selected)
-        avg_disagreement_selected = (disagreement[idcs_selected]).mean() # blue
-        progress_disagreement.append(np.array([avg_disagreement_selected, avg_disagreement_pool]))
+        # print("\t",idcs_selected)
+        
+        disagreement_selected = disagreement[idcs_selected]
+        avg_disagreement_selected = np.mean(disagreement_selected)
+        
+        progress_disagreement.append(np.array([ avg_disagreement_selected,\
+                                                avg_disagreement_pool,\
+                                                np.std(disagreement_selected),\
+                                                np.std(disagreement),\
+                                                len(training_set),len(candidates)]))
         
         #-------------------------#
         # Recalculate energies and forces for selected structures
@@ -213,14 +226,10 @@ def run_qbc(fns_committee:List[str],
                 structure.calc = calculator
                 structure.get_potential_energy()
                 structure.get_forces()
-                
-        #training_set.append([candidates[i] for i in idcs_selected])
-        #candidates = np.delete(candidates, idcs_selected)
-        # TODO: super ugly, make it better
-        for i in idcs_selected:
-            training_set.append(candidates[i])
-        for i in idcs_selected:
-            del candidates[i]
+        
+        
+        training_set.extend([candidates[i] for i in idcs_selected])
+        candidates = [item for i, item in enumerate(candidates) if i not in idcs_selected]
 
         # dump files with structures
         new_training_set = f'{ofolder}/structures/train-iter.n={iter}.extxyz'
@@ -251,23 +260,42 @@ def run_qbc(fns_committee:List[str],
             for n in range(n_committee):
                 train_single_model(n)
 
-        print(f'\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
+        print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
         print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
+        print(f'\t                New training set size: {len(training_set):d}')
+        print(f'\t               New candidate set size: {len(candidates):d}')
+        
         
         end_time = time.time()
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        print(f'\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
+        print(f'\n\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
         print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         print(f'\tDuration:   {elapsed:.2f} seconds')
+        
+        header = "\
+selected-mean\n\
+pool-mean\n\
+selected-std\n\
+pool-std\n\
+training-set-size\n\
+candidate-set-size\
+"
+        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,format='%12.8f')
         
     #-------------------------#
     # Finalize
     #-------------------------#
+    print(f'\n\t--------------------------------------------------------------------')
+    print(f'\tEnd of QbC loop.\n')
+    print(f'\tFinal training set size: {len(training_set):d}')
+    print(f'\tFinal candidate set size: {len(candidates):d}')
             
     # dump final training set
     write(f'{ofolder}/train-final.extxyz', training_set, format='extxyz')
-    np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
+    # np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
+    
+    os.remove(f'{ofolder}/train-iter.extxyz')
     

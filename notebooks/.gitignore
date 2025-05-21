@@ -1,11 +1,5 @@
-checkpoints/
-config/
-log/
-models/
-results/
-structures/
 aims/
-eval/
+init-train/
 qbc-work/
 *.extxyz
 *.txt
