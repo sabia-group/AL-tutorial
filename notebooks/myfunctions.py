@@ -154,8 +154,10 @@ def run_qbc(fns_committee:List[str],
     # TODO: think about striding the candidates to make it more efficient
     # TODO: start from training set size 0?
 
+    n_committee = len(fns_committee)
+
     print(f'Starting QbC.')
-    print(f"Number of models: {len(fns_committee):d}")
+    print(f"Number of models: {n_committee:d}")
     print(f"Number of iterations: {n_iter:d}")
     print(f"Number of new candidates at each iteration: {n_add_iter:d}")
     print(f"Candidates file: {fn_candidates}")
@@ -173,6 +175,15 @@ def run_qbc(fns_committee:List[str],
     candidates:List[Atoms] = read(fn_candidates, index=':')
     training_set = []
     progress_disagreement = []
+    
+    #-------------------------#
+    # Copy models to new folder
+    #-------------------------#
+    for n, model in enumerate(fns_committee):
+        file = f'{ofolder}/mace.n={n}.model'
+        print(f"\n\tCopying '{model}' to '{file}'")
+        shutil.copy(model,file)
+        fns_committee[n] = file
     
     #-------------------------#
     # QbC loop
@@ -248,7 +259,6 @@ def run_qbc(fns_committee:List[str],
         # retrain the committee with the enriched training set
         print(f'\tRetraining committee.')
         # TODO: add model refinement: check that it is actually done
-        n_committee = len(fns_committee)
         global GLOBAL_CONFIG_PATH
         GLOBAL_CONFIG_PATH = config
         
@@ -259,6 +269,8 @@ def run_qbc(fns_committee:List[str],
         else: # serial version: it should take around 1m
             for n in range(n_committee):
                 train_single_model(n)
+                
+        clean_output(ofolder,n_committee)
 
         print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
@@ -299,3 +311,27 @@ candidate-set-size\
     
     os.remove(f'{ofolder}/train-iter.extxyz')
     
+def clean_output(folder,n_committee):
+    # remove useless files
+    for filename in os.listdir(f'{folder}/log'):
+        if filename.endswith('_debug.log'):
+            file_path = os.path.join(f'{folder}/log', filename)
+            os.remove(file_path)
+            
+    for n in range(n_committee):
+        
+        # models
+        filenames = [f"{folder}/models/mace.com={n}.model",
+                    f"{folder}/models/mace.com={n}_compiled.model",
+                    f"{folder}/models/mace.com={n}_stagetwo.model"]
+        for filename in filenames:
+            if os.path.exists(filename):
+                os.remove(filename)
+        
+        if os.path.exists(f"{folder}/models/mace.com={n}_stagetwo_compiled.model"):
+            os.rename(f"{folder}/models/mace.com={n}_stagetwo_compiled.model",f"{folder}/models/mace.n={n}.model")
+        
+    for filename in os.listdir(f'{folder}/results'):
+        if filename.endswith('.txt') or filename.endswith('stage_one.png'):
+            file_path = os.path.join(f'{folder}/results', filename)
+            os.remove(file_path)
