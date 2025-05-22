@@ -295,7 +295,7 @@ pool-std\n\
 training-set-size\n\
 candidate-set-size\
 "
-        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,format='%12.8f')
+        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,fmt='%12.8f')
         
     #-------------------------#
     # Finalize
