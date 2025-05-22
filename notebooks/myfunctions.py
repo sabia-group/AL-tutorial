@@ -1,5 +1,5 @@
 import shutil
-import os, sys
+import os, sys, glob
 import multiprocessing
 from datetime import datetime
 import time
@@ -118,7 +118,7 @@ GLOBAL_CONFIG_PATH = None
 def train_single_model(n_config):
     train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
 
-def run_qbc(fns_committee:List[str],
+def run_qbc(init_train_folder:str,
             fn_candidates:str,
             n_iter:int,
             config:str,
@@ -154,7 +154,27 @@ def run_qbc(fns_committee:List[str],
     # TODO: think about striding the candidates to make it more efficient
     # TODO: start from training set size 0?
 
-    n_committee = len(fns_committee)
+    
+    #-------------------------#
+    # create folders
+    #-------------------------#
+    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models",f"{ofolder}/checkpoints"]
+    for f in folders:
+        os.makedirs(f, exist_ok=True)
+        
+    #-------------------------#
+    # Copy models and checkpoints to new folder
+    #-------------------------#
+    copy_files_in_folder(f"{init_train_folder}/checkpoints/",f"{ofolder}/checkpoints/")
+    copy_files_in_folder(f"{init_train_folder}/models/",f"{ofolder}/models/")
+    
+    
+    #-------------------------#
+    # Banner
+    #-------------------------#
+    model_dir = os.path.join(ofolder, "models")
+    n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*.model")))
+    assert n_committee > 1, "error"
 
     print(f'Starting QbC.')
     print(f"Number of models: {n_committee:d}")
@@ -162,13 +182,10 @@ def run_qbc(fns_committee:List[str],
     print(f"Number of new candidates at each iteration: {n_add_iter:d}")
     print(f"Candidates file: {fn_candidates}")
     print(f"Test file: {test_dataset}")
-    # print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
-
-    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models"]
     
-    for f in folders:
-        os.makedirs(f, exist_ok=True)
-
+    #-------------------------#
+    # Preparation
+    #-------------------------#
     shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
     fn_candidates = f'{ofolder}/candidates.start.extxyz'
     
@@ -177,18 +194,15 @@ def run_qbc(fns_committee:List[str],
     progress_disagreement = []
     
     #-------------------------#
-    # Copy models to new folder
+    # Look for models
     #-------------------------#
-    for n, model in enumerate(fns_committee):
-        file = f'{ofolder}/mace.n={n}.model'
-        print(f"\n\tCopying '{model}' to '{file}'")
-        shutil.copy(model,file)
-        fns_committee[n] = file
+    fns_committee = [None]*n_committee
+    for n in range(n_committee):
+        fns_committee[n] = f'{ofolder}/models/mace.com={n}.model'
     
     #-------------------------#
     # QbC loop
-    #-------------------------#
-    
+    #-------------------------#    
     for iter in range(n_iter):
         start_time = time.time()
         start_datetime = datetime.now()
@@ -270,7 +284,7 @@ def run_qbc(fns_committee:List[str],
             for n in range(n_committee):
                 train_single_model(n)
                 
-        clean_output(ofolder,n_committee)
+        # clean_output(ofolder,n_committee)
 
         print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
@@ -335,3 +349,6 @@ def clean_output(folder,n_committee):
         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
             file_path = os.path.join(f'{folder}/results', filename)
             os.remove(file_path)
+            
+def copy_files_in_folder(src,dst):
+    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
