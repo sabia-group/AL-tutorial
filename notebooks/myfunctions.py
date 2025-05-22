@@ -12,7 +12,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from mace.cli.run_train import main as mace_run_train_main          # train a MACE model
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
-__all__ = ["extxyz2energy", "train_mace", "eval_mace", "run_aims"]
+__all__ = ["extxyz2energy", "extxyz2forces", "train_mace", "eval_mace", "run_aims"]
 
 # definition of some helper functions
 def extxyz2energy(file:str,keyword:str="MACE_energy"):
@@ -23,6 +23,15 @@ def extxyz2energy(file:str,keyword:str="MACE_energy"):
     for n,atom in enumerate(atoms):
         data[n] = atom.info[keyword]
     return data
+
+def extxyz2forces(file:str,keyword:str="MACE_forces"):
+    """Extracts the energy values from an extxyz file and returns a numpy array
+    """
+    atoms = read(file, index=':')
+    data = []
+    for n,atom in enumerate(atoms):
+        data.append(atom.arrays[keyword])
+    return np.array(data)
 
 def train_mace(config:str):
     """Train a MACE model using the provided configuration file.
@@ -212,28 +221,33 @@ def run_qbc(init_train_folder:str,
         print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
     
         # predict disagreement on all candidates
+        # KB: working version of using force disagreement instead of energy disagreement
         print(f'\tPredicting committee disagreement across the candidate pool.')
-        energies = [None]*len(fns_committee)
+        #energies = [None]*len(fns_committee)
+        forces = []
         for n, model in enumerate(fns_committee):
             fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
-            e = extxyz2energy(fn_dump)
-            energies[n] = e
+            #e = extxyz2energy(fn_dump)
+            #energies[n] = e
+            f = extxyz2forces(fn_dump)
+            forces.append(f)
             
             if test_dataset is not None:
                 eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
             
-        energies = np.array(energies)
-        disagreement = np.std(energies,axis=0)
-        avg_disagreement_pool = np.mean(disagreement) # orange
+        #energies = np.array(energies)
+        forces = np.array(forces)
+        disagreement = forces.std(axis=0)
+        avg_disagreement_pool = disagreement.mean() # orange, average over all atomic forces and components
 
         # pick the `n_add_iter` highest-disagreement structures
         print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
-        idcs_selected = np.argsort(disagreement)[-n_add_iter:]
+        idcs_selected = np.argsort(disagreement.mean(axis=(1, 2)))[-n_add_iter:]
         # print("\t",idcs_selected)
         
         disagreement_selected = disagreement[idcs_selected]
-        avg_disagreement_selected = np.mean(disagreement_selected)
+        avg_disagreement_selected = disagreement_selected.mean()
         
         progress_disagreement.append(np.array([ avg_disagreement_selected,\
                                                 avg_disagreement_pool,\
