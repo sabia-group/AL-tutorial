@@ -2,7 +2,7 @@
 Everything connected to the active learning tutorial for the CNPEM-MPG meeting 07/2025.
 
 ## Overview
-We are gonna provide a tutorial for ...
+This tutorial illustrates the basic concepts of committee-based active learning using MACE potentials to represent the potential energy surfaces in simple, illustrative systems. 
 
 ## Resources
 - Webpage of our research group: https://www.mpsd.mpg.de/research/groups/sabia
