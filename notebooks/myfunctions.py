@@ -119,6 +119,7 @@ def train_single_model(n_config):
     train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
 
 def run_qbc(init_train_folder:str,
+            init_train_file:str,
             fn_candidates:str,
             n_iter:int,
             config:str,
@@ -190,7 +191,7 @@ def run_qbc(init_train_folder:str,
     fn_candidates = f'{ofolder}/candidates.start.extxyz'
     
     candidates:List[Atoms] = read(fn_candidates, index=':')
-    training_set = []
+    training_set:List[Atoms] = read(init_train_file,index=':')
     progress_disagreement = []
     
     #-------------------------#
@@ -271,6 +272,7 @@ def run_qbc(init_train_folder:str,
         # Training
         #-------------------------#
         # retrain the committee with the enriched training set
+        start_time_train = time.time()
         print(f'\tRetraining committee.')
         # TODO: add model refinement: check that it is actually done
         global GLOBAL_CONFIG_PATH
@@ -283,15 +285,21 @@ def run_qbc(init_train_folder:str,
         else: # serial version: it should take around 1m
             for n in range(n_committee):
                 train_single_model(n)
+        end_time_train = time.time()
+        
+        elapsed = end_time_train - start_time_train
+        print(f'\ttraining duration:   {elapsed:.2f} seconds')
                 
         # clean_output(ofolder,n_committee)
-
+        
+        #-------------------------#
+        # Final messages
+        #-------------------------#
         print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
         print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
         print(f'\t                New training set size: {len(training_set):d}')
         print(f'\t               New candidate set size: {len(candidates):d}')
-        
         
         end_time = time.time()
         end_datetime = datetime.now()
