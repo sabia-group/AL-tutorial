@@ -1,6 +1,15 @@
-figure.dpi: 150
+figure.dpi: 300
+figure.figsize: 6, 2
 axes.grid: True
 lines.linewidth: 1.0
 grid.linewidth: 0.25
 xtick.bottom: False
 ytick.left: False
+
+
+legend.frameon: True
+legend.facecolor: white
+legend.edgecolor: black
+legend.framealpha: 1
+legend.fontsize: 10
+legend.loc: upper right

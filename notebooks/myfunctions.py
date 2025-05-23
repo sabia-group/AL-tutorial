@@ -12,8 +12,9 @@ from contextlib import redirect_stdout, redirect_stderr
 from mace.cli.run_train import main as mace_run_train_main          # train a MACE model
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
-__all__ = ["extxyz2energy", "extxyz2forces", "train_mace", "eval_mace", "run_aims"]
+__all__ = ["extxyz2energy", "extxyz2array", "train_mace", "eval_mace", "run_aims"]
 
+#-------------------------#
 # definition of some helper functions
 def extxyz2energy(file:str,keyword:str="MACE_energy"):
     """Extracts the energy values from an extxyz file and returns a numpy array
@@ -24,15 +25,20 @@ def extxyz2energy(file:str,keyword:str="MACE_energy"):
         data[n] = atom.info[keyword]
     return data
 
-def extxyz2forces(file:str,keyword:str="MACE_forces"):
+#-------------------------#
+def extxyz2array(file:str,keyword:str="MACE_forces"):
     """Extracts the energy values from an extxyz file and returns a numpy array
     """
     atoms = read(file, index=':')
-    data = []
+    data = [None]*len(atoms)
     for n,atom in enumerate(atoms):
-        data.append(atom.arrays[keyword])
-    return np.array(data)
+        data[n] = atom.arrays[keyword]
+    try:
+        return np.array(data)
+    except:
+        return data
 
+#-------------------------#
 def train_mace(config:str):
     """Train a MACE model using the provided configuration file.
     """
@@ -41,6 +47,7 @@ def train_mace(config:str):
         with redirect_stdout(fnull), redirect_stderr(fnull):
             mace_run_train_main()
     
+#-------------------------#
 def eval_mace(model:str,infile:str,outfile:str):
     """Evaluate a MACE model.
     """
@@ -49,14 +56,16 @@ def eval_mace(model:str,infile:str,outfile:str):
         with redirect_stdout(fnull), redirect_stderr(fnull):
             mace_eval_configs_main()
 
-def retrain_mace(config:str):
-    """Train a MACE model using the provided configuration file.
-    """
-    sys.argv = ["program", "--config", config]
-    with open(os.devnull, 'w') as fnull:
-        with redirect_stdout(fnull), redirect_stderr(fnull):
-            mace_run_train_main()
+# #-------------------------#
+# def retrain_mace(config:str):
+#     """Train a MACE model using the provided configuration file.
+#     """
+#     sys.argv = ["program", "--config", config]
+#     with open(os.devnull, 'w') as fnull:
+#         with redirect_stdout(fnull), redirect_stderr(fnull):
+#             mace_run_train_main()
     
+#-------------------------#
 def run_aims(structures:List[Atoms],folder:str,command:str,control:str)->List[Atoms]:
     """
     Run AIMS on a list of structures.
@@ -92,7 +101,8 @@ def run_aims(structures:List[Atoms],folder:str,command:str,control:str)->List[At
         output[n] = _correct_read(atoms) 
         
     return output
-        
+     
+#-------------------------#   
 def _run_single_aims(workdir:str,command:str)->Atoms:
     """
     Run AIMS on a single structure.
@@ -110,6 +120,7 @@ def _run_single_aims(workdir:str,command:str)->Atoms:
     os.system(f"ulimit -s unlimited && {command} > aims.out")
     os.chdir(original_folder)
     
+#-------------------------#
 def _correct_read(atoms:Atoms)->Atoms:
     if atoms.calc is not None:
         results:Dict[str,Union[float,np.ndarray]] = atoms.calc.results
@@ -123,6 +134,7 @@ def _correct_read(atoms:Atoms)->Atoms:
     atoms.calc = None 
     return atoms
 
+#-------------------------#
 GLOBAL_CONFIG_PATH = None
 def train_single_model(n_config):
     train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
@@ -208,7 +220,7 @@ def run_qbc(init_train_folder:str,
     #-------------------------#
     fns_committee = [None]*n_committee
     for n in range(n_committee):
-        fns_committee[n] = f'{ofolder}/models/mace.com={n}.model'
+        fns_committee[n] = f'{ofolder}/models/mace.com={n}_compiled.model'
     
     #-------------------------#
     # QbC loop
@@ -230,7 +242,7 @@ def run_qbc(init_train_folder:str,
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
             #e = extxyz2energy(fn_dump)
             #energies[n] = e
-            f = extxyz2forces(fn_dump)
+            f = extxyz2array(fn_dump)
             forces.append(f)
             
             if test_dataset is not None:
@@ -239,7 +251,7 @@ def run_qbc(init_train_folder:str,
         #energies = np.array(energies)
         forces = np.array(forces)
         disagreement = forces.std(axis=0)
-        avg_disagreement_pool = disagreement.mean() # orange, average over all atomic forces and components
+        avg_disagreement_pool = disagreement.mean()
 
         # pick the `n_add_iter` highest-disagreement structures
         print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
@@ -309,7 +321,7 @@ def run_qbc(init_train_folder:str,
         #-------------------------#
         # Final messages
         #-------------------------#
-        print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
+        print(f'\n\tResults:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
         print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
         print(f'\t                New training set size: {len(training_set):d}')
@@ -319,7 +331,7 @@ def run_qbc(init_train_folder:str,
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        print(f'\n\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
+        # print(f'\n\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
         print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         print(f'\tDuration:   {elapsed:.2f} seconds')
         
@@ -346,31 +358,33 @@ candidate-set-size\
     # np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
     
     os.remove(f'{ofolder}/train-iter.extxyz')
+  
+#-------------------------#  
+# def clean_output(folder,n_committee):
+#     # remove useless files
+#     for filename in os.listdir(f'{folder}/log'):
+#         if filename.endswith('_debug.log'):
+#             file_path = os.path.join(f'{folder}/log', filename)
+#             os.remove(file_path)
+            
+#     for n in range(n_committee):
+        
+#         # models
+#         filenames = [f"{folder}/models/mace.com={n}.model",
+#                     f"{folder}/models/mace.com={n}_compiled.model",
+#                     f"{folder}/models/mace.com={n}_stagetwo.model"]
+#         for filename in filenames:
+#             if os.path.exists(filename):
+#                 os.remove(filename)
+        
+#         if os.path.exists(f"{folder}/models/mace.com={n}_stagetwo_compiled.model"):
+#             os.rename(f"{folder}/models/mace.com={n}_stagetwo_compiled.model",f"{folder}/models/mace.n={n}.model")
+        
+#     for filename in os.listdir(f'{folder}/results'):
+#         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
+#             file_path = os.path.join(f'{folder}/results', filename)
+#             os.remove(file_path)
     
-def clean_output(folder,n_committee):
-    # remove useless files
-    for filename in os.listdir(f'{folder}/log'):
-        if filename.endswith('_debug.log'):
-            file_path = os.path.join(f'{folder}/log', filename)
-            os.remove(file_path)
-            
-    for n in range(n_committee):
-        
-        # models
-        filenames = [f"{folder}/models/mace.com={n}.model",
-                    f"{folder}/models/mace.com={n}_compiled.model",
-                    f"{folder}/models/mace.com={n}_stagetwo.model"]
-        for filename in filenames:
-            if os.path.exists(filename):
-                os.remove(filename)
-        
-        if os.path.exists(f"{folder}/models/mace.com={n}_stagetwo_compiled.model"):
-            os.rename(f"{folder}/models/mace.com={n}_stagetwo_compiled.model",f"{folder}/models/mace.n={n}.model")
-        
-    for filename in os.listdir(f'{folder}/results'):
-        if filename.endswith('.txt') or filename.endswith('stage_one.png'):
-            file_path = os.path.join(f'{folder}/results', filename)
-            os.remove(file_path)
-            
+#-------------------------#        
 def copy_files_in_folder(src,dst):
     [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
