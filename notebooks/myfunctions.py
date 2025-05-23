@@ -3,6 +3,7 @@ import os, sys, glob
 import multiprocessing
 from datetime import datetime
 import time
+from contextlib import contextmanager
 import numpy as np
 from typing import List, Dict, Union
 from ase import Atoms
@@ -388,3 +389,11 @@ candidate-set-size\
 #-------------------------#        
 def copy_files_in_folder(src,dst):
     [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
+
+#-------------------------#
+@contextmanager
+def timing(title="Duration"):
+    start = time.time()
+    yield
+    end = time.time()
+    print(f"\t{title}: {end - start:.2f}s")
