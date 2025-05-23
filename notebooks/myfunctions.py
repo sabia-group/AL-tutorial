@@ -1,5 +1,5 @@
 import shutil
-import os, sys
+import os, sys, glob
 import multiprocessing
 from datetime import datetime
 import time
@@ -12,7 +12,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from mace.cli.run_train import main as mace_run_train_main          # train a MACE model
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
-__all__ = ["extxyz2energy", "train_mace", "eval_mace", "run_aims"]
+__all__ = ["extxyz2energy", "extxyz2forces", "train_mace", "eval_mace", "run_aims"]
 
 # definition of some helper functions
 def extxyz2energy(file:str,keyword:str="MACE_energy"):
@@ -23,6 +23,15 @@ def extxyz2energy(file:str,keyword:str="MACE_energy"):
     for n,atom in enumerate(atoms):
         data[n] = atom.info[keyword]
     return data
+
+def extxyz2forces(file:str,keyword:str="MACE_forces"):
+    """Extracts the energy values from an extxyz file and returns a numpy array
+    """
+    atoms = read(file, index=':')
+    data = []
+    for n,atom in enumerate(atoms):
+        data.append(atom.arrays[keyword])
+    return np.array(data)
 
 def train_mace(config:str):
     """Train a MACE model using the provided configuration file.
@@ -118,7 +127,8 @@ GLOBAL_CONFIG_PATH = None
 def train_single_model(n_config):
     train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
 
-def run_qbc(fns_committee:List[str],
+def run_qbc(init_train_folder:str,
+            init_train_file:str,
             fn_candidates:str,
             n_iter:int,
             config:str,
@@ -154,7 +164,27 @@ def run_qbc(fns_committee:List[str],
     # TODO: think about striding the candidates to make it more efficient
     # TODO: start from training set size 0?
 
-    n_committee = len(fns_committee)
+    
+    #-------------------------#
+    # create folders
+    #-------------------------#
+    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models",f"{ofolder}/checkpoints"]
+    for f in folders:
+        os.makedirs(f, exist_ok=True)
+        
+    #-------------------------#
+    # Copy models and checkpoints to new folder
+    #-------------------------#
+    copy_files_in_folder(f"{init_train_folder}/checkpoints/",f"{ofolder}/checkpoints/")
+    copy_files_in_folder(f"{init_train_folder}/models/",f"{ofolder}/models/")
+    
+    
+    #-------------------------#
+    # Banner
+    #-------------------------#
+    model_dir = os.path.join(ofolder, "models")
+    n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*.model")))
+    assert n_committee > 1, "error"
 
     print(f'Starting QbC.')
     print(f"Number of models: {n_committee:d}")
@@ -162,33 +192,27 @@ def run_qbc(fns_committee:List[str],
     print(f"Number of new candidates at each iteration: {n_add_iter:d}")
     print(f"Candidates file: {fn_candidates}")
     print(f"Test file: {test_dataset}")
-    # print(f'{n_iter:d} iterations will be done in total and {n_add_iter:d} will be added every iteration.')
-
-    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models"]
     
-    for f in folders:
-        os.makedirs(f, exist_ok=True)
-
+    #-------------------------#
+    # Preparation
+    #-------------------------#
     shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
     fn_candidates = f'{ofolder}/candidates.start.extxyz'
     
     candidates:List[Atoms] = read(fn_candidates, index=':')
-    training_set = []
+    training_set:List[Atoms] = read(init_train_file,index=':')
     progress_disagreement = []
     
     #-------------------------#
-    # Copy models to new folder
+    # Look for models
     #-------------------------#
-    for n, model in enumerate(fns_committee):
-        file = f'{ofolder}/mace.n={n}.model'
-        print(f"\n\tCopying '{model}' to '{file}'")
-        shutil.copy(model,file)
-        fns_committee[n] = file
+    fns_committee = [None]*n_committee
+    for n in range(n_committee):
+        fns_committee[n] = f'{ofolder}/models/mace.com={n}.model'
     
     #-------------------------#
     # QbC loop
-    #-------------------------#
-    
+    #-------------------------#    
     for iter in range(n_iter):
         start_time = time.time()
         start_datetime = datetime.now()
@@ -197,28 +221,33 @@ def run_qbc(fns_committee:List[str],
         print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
     
         # predict disagreement on all candidates
+        # KB: working version of using force disagreement instead of energy disagreement
         print(f'\tPredicting committee disagreement across the candidate pool.')
-        energies = [None]*len(fns_committee)
+        #energies = [None]*len(fns_committee)
+        forces = []
         for n, model in enumerate(fns_committee):
             fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
             eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
-            e = extxyz2energy(fn_dump)
-            energies[n] = e
+            #e = extxyz2energy(fn_dump)
+            #energies[n] = e
+            f = extxyz2forces(fn_dump)
+            forces.append(f)
             
             if test_dataset is not None:
                 eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
             
-        energies = np.array(energies)
-        disagreement = np.std(energies,axis=0)
-        avg_disagreement_pool = np.mean(disagreement) # orange
+        #energies = np.array(energies)
+        forces = np.array(forces)
+        disagreement = forces.std(axis=0)
+        avg_disagreement_pool = disagreement.mean() # orange, average over all atomic forces and components
 
         # pick the `n_add_iter` highest-disagreement structures
         print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
-        idcs_selected = np.argsort(disagreement)[-n_add_iter:]
+        idcs_selected = np.argsort(disagreement.mean(axis=(1, 2)))[-n_add_iter:]
         # print("\t",idcs_selected)
         
         disagreement_selected = disagreement[idcs_selected]
-        avg_disagreement_selected = np.mean(disagreement_selected)
+        avg_disagreement_selected = disagreement_selected.mean()
         
         progress_disagreement.append(np.array([ avg_disagreement_selected,\
                                                 avg_disagreement_pool,\
@@ -257,6 +286,7 @@ def run_qbc(fns_committee:List[str],
         # Training
         #-------------------------#
         # retrain the committee with the enriched training set
+        start_time_train = time.time()
         print(f'\tRetraining committee.')
         # TODO: add model refinement: check that it is actually done
         global GLOBAL_CONFIG_PATH
@@ -269,15 +299,21 @@ def run_qbc(fns_committee:List[str],
         else: # serial version: it should take around 1m
             for n in range(n_committee):
                 train_single_model(n)
+        end_time_train = time.time()
+        
+        elapsed = end_time_train - start_time_train
+        print(f'\ttraining duration:   {elapsed:.2f} seconds')
                 
-        clean_output(ofolder,n_committee)
-
+        # clean_output(ofolder,n_committee)
+        
+        #-------------------------#
+        # Final messages
+        #-------------------------#
         print(f'\n\tResults of QbC iteration {iter+1:d}/{n_iter:d}:')
         print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
         print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
         print(f'\t                New training set size: {len(training_set):d}')
         print(f'\t               New candidate set size: {len(candidates):d}')
-        
         
         end_time = time.time()
         end_datetime = datetime.now()
@@ -295,7 +331,7 @@ pool-std\n\
 training-set-size\n\
 candidate-set-size\
 "
-        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,format='%12.8f')
+        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,fmt='%12.8f')
         
     #-------------------------#
     # Finalize
@@ -335,3 +371,6 @@ def clean_output(folder,n_committee):
         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
             file_path = os.path.join(f'{folder}/results', filename)
             os.remove(file_path)
+            
+def copy_files_in_folder(src,dst):
+    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
