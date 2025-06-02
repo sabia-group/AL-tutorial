@@ -1,6 +1,7 @@
 aims/
 init-train/
 qbc-work/
+eigen-qbc-work/
 md/
 *.extxyz
 *.txt

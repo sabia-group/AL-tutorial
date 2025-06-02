@@ -65,7 +65,49 @@ def eval_mace(model:str,infile:str,outfile:str):
 #     with open(os.devnull, 'w') as fnull:
 #         with redirect_stdout(fnull), redirect_stderr(fnull):
 #             mace_run_train_main()
+   
+#-------------------------# 
+def run_single_aims_structure(structure: Atoms, folder: str, command: str, control: str) -> Atoms:
+    """
+    Run FHI-aims on a single structure.
     
+    Parameters
+    ----------
+    structure : Atoms
+        ASE Atoms object to run.
+    folder : str
+        Folder where the calculation will run.
+    command : str
+        Command to execute FHI-aims, e.g. 'mpirun -n 4 aims.x'.
+    control : str
+        Path to a control.in file.
+        
+    Returns
+    -------
+    Atoms
+        Structure with energy/forces info read from the output.
+    """
+    # Ensure working directory exists
+    os.makedirs(folder, exist_ok=True)
+
+    # Prepare input files
+    geom_path = os.path.join(folder, "geometry.in")
+    ctrl_path = os.path.join(folder, "control.in")
+    out_path = os.path.join(folder, "aims.out")
+
+    write(geom_path, structure, format="aims")
+    shutil.copy(control, ctrl_path)
+
+    # Run FHI-aims
+    _run_single_aims(folder, command)
+
+    # Read result and return corrected Atoms object
+    try:
+        atoms = read(out_path, format="aims-output")
+    except Exception as err:
+        raise ValueError(f"An error occcurred while reading '{out_path}'")
+    return _correct_read(atoms)
+
 #-------------------------#
 def run_aims(structures:List[Atoms],folder:str,command:str,control:str)->List[Atoms]:
     """
@@ -104,22 +146,23 @@ def run_aims(structures:List[Atoms],folder:str,command:str,control:str)->List[At
     return output
      
 #-------------------------#   
-def _run_single_aims(workdir:str,command:str)->Atoms:
+def _run_single_aims(workdir: str, command: str) -> Atoms:
     """
     Run AIMS on a single structure.
     Parameters
     ----------
-    structure : Atoms
-        ASE Atoms object.
-    folder : str
+    workdir : str
         Folder where the AIMS input files are stored.
-    aims_path: str
-        Path to the AIMS executable.
+    command : str
+        Full AIMS execution command.
     """
     original_folder = os.getcwd()
-    os.chdir(workdir)
-    os.system(f"ulimit -s unlimited && {command} > aims.out")
-    os.chdir(original_folder)
+    try:
+        os.chdir(workdir)
+        # Suppress both stdout and stderr
+        os.system(f"ulimit -s unlimited && {command} ")
+    finally:
+        os.chdir(original_folder)
     
 #-------------------------#
 def _correct_read(atoms:Atoms)->Atoms:
@@ -139,6 +182,15 @@ def _correct_read(atoms:Atoms)->Atoms:
 GLOBAL_CONFIG_PATH = None
 def train_single_model(n_config):
     train_mace(f"{GLOBAL_CONFIG_PATH}/config.{n_config}.yml")
+    
+def ab_initio(args):
+    structure, calculator = args
+    assert isinstance(structure,Atoms), "wrong data type"
+    assert isinstance(calculator,Calculator), "wrong data type"
+    structure.calc = calculator
+    structure.get_potential_energy()
+    structure.get_forces()
+    
 
 def run_qbc(init_train_folder:str,
             init_train_file:str,
@@ -149,7 +201,7 @@ def run_qbc(init_train_folder:str,
             ofolder:str="qbc-work", 
             n_add_iter:int=10,
             recalculate_selected:bool=False,
-            calculator:Calculator=None,
+            calculator_factory:callable=None,
             parallel:bool=True):
     """
     Main QbC loop.
@@ -176,10 +228,12 @@ def run_qbc(init_train_folder:str,
     # TODO: Add the possibility of attaching a ASE calculator for later when we need to address unlabeled data.
     # TODO: think about striding the candidates to make it more efficient
     # TODO: start from training set size 0?
-
     
+    if recalculate_selected:
+        assert calculator_factory is not None, "You need to provide as ASE calculator if you want to recalculate energy and forces on the fly."
+
     #-------------------------#
-    # create folders
+    # Folders preparation
     #-------------------------#
     folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models",f"{ofolder}/checkpoints"]
     for f in folders:
@@ -196,7 +250,7 @@ def run_qbc(init_train_folder:str,
     # Banner
     #-------------------------#
     model_dir = os.path.join(ofolder, "models")
-    n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*.model")))
+    n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*_compiled.model")))
     assert n_committee > 1, "error"
 
     print(f'Starting QbC.')
@@ -232,6 +286,10 @@ def run_qbc(init_train_folder:str,
         print(f'\n\t--------------------------------------------------------------------')
         print(f'\tStart of QbC iteration {iter+1:d}/{n_iter:d}\n')
         print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+        
+        #-------------------------#
+        # 1) Model evaluation
+        #-------------------------# 
     
         # predict disagreement on all candidates
         # KB: working version of using force disagreement instead of energy disagreement
@@ -248,6 +306,10 @@ def run_qbc(init_train_folder:str,
             
             if test_dataset is not None:
                 eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
+                
+        #-------------------------#
+        # 2) Disagreement calculation
+        #-------------------------# 
             
         #energies = np.array(energies)
         forces = np.array(forces)
@@ -268,35 +330,71 @@ def run_qbc(init_train_folder:str,
                                                 np.std(disagreement),\
                                                 len(training_set),len(candidates)]))
         
+        to_evaluate:List[Atoms] = [candidates[i] for i in idcs_selected]
+        
         #-------------------------#
-        # Recalculate energies and forces for selected structures
+        # 3.a) Energies and forces re-calculation (optional)
         #-------------------------#
-        # TODO: an ASE calculator will come here
         if recalculate_selected:
-            assert calculator is not None, 'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
+            assert calculator_factory is not None, \
+                'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
             print(f'\tRecalculating ab initio energies and forces for new data points.')
-            for structure in candidates[idcs_selected]:
-                structure.calc = calculator
-                structure.get_potential_energy()
-                structure.get_forces()
+            
+            start_time_train = time.time()
+            # print("\n\tAb initio calculations:")
+            
+            Nai = len(to_evaluate)
+            for n,structure in enumerate(to_evaluate):
+                print(f"\tAb initio calculations: {n+1:3}/{Nai:3}",end="\r")
+                structure.calc = calculator_factory(n,None)
+                structure.info = {}
+                structure.arrays = {
+                    "positions" : structure.get_positions(),
+                    "numbers" : structure._get_atomic_numbers()
+                }
+                structure.get_potential_energy() # this will trigger the calculation
+                results:dict = structure.calc.results
+                for key,value in results.items():
+                    if key in ['energy','free_energy','dipole','stress']:
+                        structure.info[f"REF_{key}"] = value
+                    elif key in ['forces']:
+                        structure.arrays["REF_forces"] = value
+                    else: 
+                        structure.info[f"REF_{key}"] = value
+                structure.calc = None
+                # print(structure.info.keys())
+                # structure.info["REF_energy"] = structure.info["energy"].pop()
+                # structure.info["REF_forces"] = structure.info["forces"].pop()
+                
+            end_time_train = time.time()
         
+            elapsed = end_time_train - start_time_train
+            print(f'\n\tTime spent in ab initio calculations:   {elapsed:.2f} seconds')
+            
+        #-------------------------#
+        # 3.b) Dataset updating
+        #-------------------------#
         
-        training_set.extend([candidates[i] for i in idcs_selected])
+        training_set.extend(to_evaluate)
         candidates = [item for i, item in enumerate(candidates) if i not in idcs_selected]
-
-        # dump files with structures
-        new_training_set = f'{ofolder}/structures/train-iter.n={iter}.extxyz'
+        
+        # update the candidate file name
         new_candidates = f'{ofolder}/structures/candidates.n={iter}.extxyz'
-        write(new_training_set, training_set, format='extxyz')
         write(new_candidates, candidates, format='extxyz')
+        fn_candidates = new_candidates
+        
+                
+        #-------------------------#
+        # 3.c) Dataset updating
+        #-------------------------#
         
         # update the training set file name
+        new_training_set = f'{ofolder}/structures/train-iter.n={iter}.extxyz'
+        write(new_training_set, training_set, format='extxyz')
         shutil.copy(new_training_set, f'{ofolder}/train-iter.extxyz') # MACE will use this file to train
-        # update the candidate file name
-        fn_candidates = new_candidates
-
+        
         #-------------------------#
-        # Training
+        # 4) Models training
         #-------------------------#
         # retrain the committee with the enriched training set
         start_time_train = time.time()
@@ -305,11 +403,11 @@ def run_qbc(init_train_folder:str,
         global GLOBAL_CONFIG_PATH
         GLOBAL_CONFIG_PATH = config
         
-        if parallel: # parallel version: it should take around 25s 
+        if parallel: # parallel version
             with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
                 pool.map(train_single_model, range(n_committee))
                 
-        else: # serial version: it should take around 1m
+        else: # serial version
             for n in range(n_committee):
                 train_single_model(n)
         end_time_train = time.time()
@@ -356,10 +454,23 @@ candidate-set-size\
             
     # dump final training set
     write(f'{ofolder}/train-final.extxyz', training_set, format='extxyz')
-    # np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement)
     
     os.remove(f'{ofolder}/train-iter.extxyz')
+    
+    return
   
+#-------------------------#        
+def copy_files_in_folder(src,dst):
+    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
+
+#-------------------------#
+@contextmanager
+def timing(title="Duration"):
+    start = time.time()
+    yield
+    end = time.time()
+    print(f"\t{title}: {end - start:.2f}s")
+
 #-------------------------#  
 # def clean_output(folder,n_committee):
 #     # remove useless files
@@ -385,15 +496,3 @@ candidate-set-size\
 #         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
 #             file_path = os.path.join(f'{folder}/results', filename)
 #             os.remove(file_path)
-    
-#-------------------------#        
-def copy_files_in_folder(src,dst):
-    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
-
-#-------------------------#
-@contextmanager
-def timing(title="Duration"):
-    start = time.time()
-    yield
-    end = time.time()
-    print(f"\t{title}: {end - start:.2f}s")
