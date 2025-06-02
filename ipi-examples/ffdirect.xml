@@ -1,0 +1,85 @@
+<simulation mode='static' verbosity='low'>
+
+    <output prefix='ipi'>
+        <properties stride='20' filename='mean_properties.out'> [ 
+            step, 
+            time{femtosecond}, 
+            conserved{electronvolt}, 
+            kinetic_md{electronvolt}, 
+            potential{electronvolt}, 
+            temperature{kelvin} 
+        ] </properties>
+        <trajectory filename='pos' stride='20' format='ase' > positions </trajectory>
+        <trajectory filename='mean_force' stride='20' format='xyz' cell_units='angstrom'> forces{eV/ang} </trajectory>
+
+        <properties stride='20' filename='mace_properties'>  [ 
+            pot_component_raw(0){electronvolt}, 
+            pot_component_raw(1){electronvolt}, 
+            pot_component_raw(2){electronvolt}, 
+            pot_component_raw(3){electronvolt} 
+        ] </properties> 
+        <trajectory filename='mace_force_0' stride='20' format='ase'> forces_component_raw(0) </trajectory>
+        <trajectory filename='mace_force_1' stride='20' format='ase'> forces_component_raw(1) </trajectory>
+        <trajectory filename='mace_force_2' stride='20' format='ase'> forces_component_raw(2) </trajectory>
+        <trajectory filename='mace_force_3' stride='20' format='ase'> forces_component_raw(3) </trajectory>
+    </output>
+
+    <total_steps> 20000 </total_steps>
+    <prng> <seed> 32342 </seed> </prng>
+
+    <!-- <ffcommittee name="committee"> -->
+        <!-- <active_output> active </active_output> -->
+
+        <ffdirect name='mace-0'>
+            <pes> mace </pes>
+            <parameters> {template:start.extxyz,model:../../checkpoints/models/mace.com=0_compiled.model } </parameters>
+        </ffdirect>
+
+        <ffdirect name='mace-1'>
+            <pes> mace </pes>
+            <parameters> {template:start.extxyz,model:../../checkpoints/models/mace.com=1_compiled.model } </parameters>
+        </ffdirect>
+
+        <ffdirect name='mace-2'>
+            <pes> mace </pes>
+            <parameters> {template:start.extxyz,model:../../checkpoints/models/mace.com=2_compiled.model } </parameters>
+        </ffdirect>
+
+        <ffdirect name='mace-3'>
+            <pes> mace </pes>
+            <parameters> {template:start.extxyz,model:../../checkpoints/models/mace.com=3_compiled.model } </parameters>
+        </ffdirect>
+
+    <!-- </ffcommittee> -->
+
+    <system>
+
+        <initialize nbeads='1'>
+            <file mode='ase'> start.extxyz </file>
+            <cell> [   1000, 0, 0, 0, 1000, 0, 0, 0, 1000 ] </cell>
+            <velocities mode='thermal' units='kelvin'> 300 </velocities>
+        </initialize>
+
+        <forces>
+            <force forcefield='mace-0' weight='0.25'> </force>
+            <force forcefield='mace-1' weight='0.25'> </force>
+            <force forcefield='mace-2' weight='0.25'> </force>
+            <force forcefield='mace-3' weight='0.25'> </force>
+        </forces>
+
+        <motion mode='dynamics'>
+            <dynamics mode='nvt'>
+                <timestep units='femtosecond'> 0.5 </timestep>
+                <thermostat mode="langevin">
+                    <tau units="femtosecond"> 100</tau>
+                </thermostat>
+            </dynamics>
+        </motion>
+        
+        <ensemble>
+            <temperature units='kelvin'> 300 </temperature>
+        </ensemble>
+
+    </system>
+
+</simulation>

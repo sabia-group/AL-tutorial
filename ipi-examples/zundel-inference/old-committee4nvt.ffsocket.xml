@@ -6,33 +6,29 @@
         <trajectory filename='force' stride='1' format='xyz' cell_units='angstrom'> forces{eV/ang} </trajectory>
     </output>
 
-    <total_steps> 100 </total_steps>
+    <total_steps> 20000 </total_steps>
     <prng> <seed> 32342 </seed> </prng>
 
-    <ffcommittee name="committee">
-        <active_output> active </active_output>
+    <!-- <ffcommittee name="committee">
+        <active_output> active </active_output> -->
 
-        <ffdirect name='mace-0'>
-            <pes> mace </pes>
-            <parameters> {template:start.extxyz,model:../notebooks/init-train/models/mace.n=0.model } </parameters>
-        </ffdirect>
+        <ffsocket name='mace-0' mode='unix'>
+            <address> address-0 </address>
+        </ffsocket>
 
-        <ffdirect name='mace-1'>
-            <pes> mace </pes>
-            <parameters> {template:start.extxyz,model:../notebooks/init-train/models/mace.n=1.model } </parameters>
-        </ffdirect>
+        <ffsocket name='mace-1' mode='unix'>
+            <address> address-1 </address>
+        </ffsocket>
 
-        <ffdirect name='mace-2'>
-            <pes> mace </pes>
-            <parameters> {template:start.extxyz,model:../notebooks/init-train/models/mace.n=2.model } </parameters>
-        </ffdirect>
+        <ffsocket name='mace-2' mode='unix'>
+            <address> address-2 </address>
+        </ffsocket>
 
-        <ffdirect name='mace-3'>
-            <pes> mace </pes>
-            <parameters> {template:start.extxyz,model:../notebooks/init-train/models/mace.n=3.model } </parameters>
-        </ffdirect>
+        <ffsocket name='mace-3' mode='unix'>
+            <address> address-3 </address>
+        </ffsocket>
 
-    </ffcommittee>
+    <!-- </ffcommittee> -->
 
     <system>
 
@@ -43,7 +39,10 @@
         </initialize>
 
         <forces>
-            <force forcefield='committee'> </force>
+            <force forcefield='mace-0' weight='0.25'> </force>
+            <force forcefield='mace-1' weight='0.25'> </force>
+            <force forcefield='mace-2' weight='0.25'> </force>
+            <force forcefield='mace-3' weight='0.25'> </force>
         </forces>
 
         <motion mode='dynamics'>

@@ -22,4 +22,4 @@ else # serial
     i-pi committee4nvt.ffdirect.xml
 fi
 
-python ../post-process.py -i ipi.pos_0.extxyz -o zundel-inference.extxyz
+# python ../post-process.py -i ipi.pos_0.extxyz -o zundel-inference.extxyz
