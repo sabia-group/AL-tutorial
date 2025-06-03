@@ -5,3 +5,4 @@ eigen-qbc-work/
 md/
 *.extxyz
 *.txt
+*.log
