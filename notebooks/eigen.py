@@ -1,25 +1,18 @@
-import os, shutil, multiprocessing
-from tqdm.notebook import tqdm
-from IPython.display import Image, display
-
+import os
 import numpy as np
 import logging
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("Agg")  # non-interactive backend
 
 from ase import Atoms
-from ase.io import read, write # read and write structures
+from ase.io import read
 from ase.calculators.calculator import Calculator, all_changes, all_properties
 
 # import functions to run this tutorial
-from myfunctions import train_mace                # train MACE model
-from myfunctions import eval_mace                 # evaluate MACE model
-from myfunctions import extxyz2energy             # extract energy from extxyz file
-from myfunctions import extxyz2array              # extract forces from extxyz file
 from myfunctions import run_qbc                   # run Query by Committee
 from myfunctions import run_single_aims_structure # call FHI-aims
 
+matplotlib.use("Agg")
 plt.style.use('notebook.mplstyle')
 
 
@@ -213,12 +206,11 @@ run_qbc(
     init_train_file="qbc-work/structures/train-iter.n=9.extxyz", # initial training dataset
     fn_candidates=f'../checkpoints/eigen-inference/train.extxyz',    # candidate structures
     test_dataset=None,          # test set
-    n_iter=5,                                                   # number of QbC iterations
+    n_iter=1,                                                   # number of QbC iterations
     config='eigen-qbc-work/config',                                       # folder with config files
     ofolder='eigen-qbc-work',                                                  # folder to save the QBC results
     n_add_iter=5,                                               # number of structures to add in each iteration
     recalculate_selected=True,                                          # whether to recalculate the selected structures with DFT (part 2)
     calculator_factory=calculator_factory,
-    parallel=False
-);
-# it should take 9m
+    parallel=True
+)
