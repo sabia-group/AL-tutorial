@@ -13,7 +13,7 @@ if ${SOCKET}; then # parallel: this should be faster because the MACE models are
 
     for n in {0..3}; do
         echo "Starting driver $n..."
-        i-pi-py_driver -u -a address-${n} -m mace -o template=start.extxyz,model=${model_folder}/mace.com=${n}_compiled.model &
+        i-pi-py_driver -u -a address-${n}0 -m mace -o template=start.extxyz,model=${model_folder}/mace.com=${n}_compiled.model &
     done
 
     wait

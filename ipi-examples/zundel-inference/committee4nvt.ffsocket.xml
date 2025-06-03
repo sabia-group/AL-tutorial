@@ -1,4 +1,4 @@
-<simulation mode='static' verbosity='high'>
+<simulation mode='static' verbosity='low'>
 
     <output prefix='ipi'>
         <properties stride='20' filename='mean_properties.out'> [ 
@@ -31,19 +31,19 @@
         <!-- <active_output> active </active_output> -->
 
         <ffsocket name='mace-0' mode='unix'>
-            <address> address-0 </address>
+            <address> address-00 </address>
         </ffsocket>
 
         <ffsocket name='mace-1' mode='unix'>
-            <address> address-1 </address>
+            <address> address-10 </address>
         </ffsocket>
 
         <ffsocket name='mace-2' mode='unix'>
-            <address> address-2 </address>
+            <address> address-20 </address>
         </ffsocket>
 
         <ffsocket name='mace-3' mode='unix'>
-            <address> address-3 </address>
+            <address> address-30 </address>
         </ffsocket>
 
     <!-- </ffcommittee> -->

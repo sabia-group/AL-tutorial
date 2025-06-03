@@ -24,7 +24,7 @@
         <trajectory filename='mace_force_3' stride='20' format='ase'> forces_component_raw(3) </trajectory>
     </output>
 
-    <total_steps> 8000 </total_steps> <!-- it should dissociate at arund step 5000-->
+    <total_steps> 20000 </total_steps> <!-- it should dissociate at arund step 5000-->
     <prng> <seed> 32342 </seed> </prng>
 
     <!-- <ffcommittee name="committee"> -->

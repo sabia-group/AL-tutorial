@@ -7,7 +7,8 @@ model_folder="../../checkpoints/models"
 
 if ${SOCKET}; then # parallel: this should be faster because the MACE models are run in parallel
     echo "Starting i-PI socket server..."
-    i-pi committee4nvt.ffsocket.xml &
+    # i-pi committee4nvt.ffsocket.xml &
+    i-pi RESTART &
 
     sleep 5  # or better: wait until socket files exist
 
@@ -22,4 +23,4 @@ else # serial
     i-pi committee4nvt.ffdirect.xml
 fi
 
-# python ../post-process.py -i ipi.pos_0.extxyz -o zundel-inference.extxyz
+python ../post-process.py -i ipi.pos_0.extxyz -o eigen-inference.extxyz
