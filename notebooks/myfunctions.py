@@ -160,7 +160,8 @@ def _run_single_aims(workdir: str, command: str) -> Atoms:
     try:
         os.chdir(workdir)
         # Suppress both stdout and stderr
-        os.system(f"ulimit -s unlimited && {command} ")
+        #os.system(f"ulimit -s unlimited && {command} ")
+        os.system(f"ulimit -s hard && {command} ")
     finally:
         os.chdir(original_folder)
     
@@ -313,13 +314,18 @@ def run_qbc(init_train_folder:str,
             
         #energies = np.array(energies)
         forces = np.array(forces)
-        disagreement = forces.std(axis=0)
+        #disagreement = forces.std(axis=0)
+        dforces = forces - forces.mean(axis=0)[None, ...]
+        disagreement_atomic = np.sqrt( ( (dforces**2).sum(axis=3) ).mean(axis=0) )
+        disagreement = disagreement_atomic.mean(axis=1)
         avg_disagreement_pool = disagreement.mean()
 
         # pick the `n_add_iter` highest-disagreement structures
         print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
-        idcs_selected = np.argsort(disagreement.mean(axis=(1, 2)))[-n_add_iter:]
+        #idcs_selected = np.argsort(disagreement.mean(axis=(1, 2)))[-n_add_iter:]
+        idcs_selected = np.argsort(disagreement)[-n_add_iter:]
         # print("\t",idcs_selected)
+
         
         disagreement_selected = disagreement[idcs_selected]
         avg_disagreement_selected = disagreement_selected.mean()
