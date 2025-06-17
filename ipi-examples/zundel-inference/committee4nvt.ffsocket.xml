@@ -24,26 +24,26 @@
         <trajectory filename='mace_force_3' stride='20' format='ase'> forces_component_raw(3) </trajectory>
     </output>
 
-    <total_steps> 20000 </total_steps>
+    <total_steps> 20000 </total_steps> <!-- it should dissociate at arund step 5000-->
     <prng> <seed> 32342 </seed> </prng>
 
     <!-- <ffcommittee name="committee"> -->
         <!-- <active_output> active </active_output> -->
 
         <ffsocket name='mace-0' mode='unix'>
-            <address> address-00 </address>
+            <address> address-0 </address>
         </ffsocket>
 
         <ffsocket name='mace-1' mode='unix'>
-            <address> address-10 </address>
+            <address> address-1 </address>
         </ffsocket>
 
         <ffsocket name='mace-2' mode='unix'>
-            <address> address-20 </address>
+            <address> address-2 </address>
         </ffsocket>
 
         <ffsocket name='mace-3' mode='unix'>
-            <address> address-30 </address>
+            <address> address-3 </address>
         </ffsocket>
 
     <!-- </ffcommittee> -->

@@ -1,14 +1,15 @@
 #!/bin/bash
 set -e
-source "${IPIPATH}/env.sh"
+#source "${IPIPATH}/env.sh"
 
 SOCKET=true
-model_folder="../../checkpoints/models"
+#model_folder="../../checkpoints/models"
+model_folder="/Users/krystofbrezina/Teaching/AL-tutorial/notebooks/qbc-work/models"
 
 if ${SOCKET}; then # parallel: this should be faster because the MACE models are run in parallel
     echo "Starting i-PI socket server..."
-    # i-pi committee4nvt.ffsocket.xml &
-    i-pi RESTART &
+    i-pi committee4nvt.ffsocket.xml &
+    #i-pi RESTART &
 
     sleep 5  # or better: wait until socket files exist
 

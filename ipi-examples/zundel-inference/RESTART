@@ -1,14 +1,10 @@
 <!--
- Git information:
-    i-PI version: unknown
-      Remote URL: git@github.com:sabia-group/i-pi.git
-          Branch: mace                    
-     Last Commit: d3657b638ee39e07c1ed2c63f1c3b695a80123a0
+ Unable to retrieve Git information.
 
  Simulation information:
-           Machine Name: cfelm-pcx32361
-      Working Directory: /home/stoccoel/Documents/Tutorial/shared/AL-tutorial/ipi-examples/zundel-inference
-          Date and Time: 2025-06-03 10:42:03
+           Machine Name: Unknown
+      Working Directory: /Users/krystofbrezina/Teaching/AL-tutorial/ipi-examples/zundel-inference
+          Date and Time: 2025-06-12 11:17:16
 -->
 <simulation verbosity='low' mode='static'>
    <prng>
@@ -31,16 +27,16 @@
    <step>20000</step>
    <total_steps>20000</total_steps>
    <ffsocket mode='unix' name='mace-0'>
-      <address>address-00</address>
+      <address>address-0</address>
    </ffsocket>
    <ffsocket mode='unix' name='mace-1'>
-      <address>address-10</address>
+      <address>address-1</address>
    </ffsocket>
    <ffsocket mode='unix' name='mace-2'>
-      <address>address-20</address>
+      <address>address-2</address>
    </ffsocket>
    <ffsocket mode='unix' name='mace-3'>
-      <address>address-30</address>
+      <address>address-3</address>
    </ffsocket>
    <system>
       <forces>
@@ -62,7 +58,7 @@
       <motion mode='dynamics'>
          <dynamics mode='nvt'>
             <thermostat mode='langevin'>
-               <ethermo> -2.85914494e-01</ethermo>
+               <ethermo> -2.80823924e-01</ethermo>
                <tau>  4.13413730e+03</tau>
             </thermostat>
             <timestep>  2.06706865e+01</timestep>
@@ -71,18 +67,18 @@
       </motion>
       <beads natoms='7' nbeads='1'>
          <q shape='(1, 21)'>
-          [  -9.48548619e-01,  -1.43711403e+00,   1.41938415e+00,  -1.55289975e+00,  -5.12417207e-01, 
-              2.99256726e+00,  -2.52665937e+00,  -2.21926624e+00,   8.76420103e-01,   1.09383750e+00, 
-              1.32698380e+00,  -1.40462798e+00,  -3.83555378e-01,  -5.15613145e-02,  -1.22674650e-01, 
-              1.12818213e+00,   3.18383765e+00,  -7.33961720e-01,   1.02890369e+00,   1.34739706e+00, 
-             -3.24656118e+00 ]
+          [  -9.95462177e-01,  -1.49449787e+00,   1.33629927e+00,  -2.26537034e+00,  -8.50805652e-01, 
+              2.47141705e+00,  -1.38181828e-01,  -2.74705618e+00,   2.32705979e+00,   9.98281034e-01, 
+              1.42382059e+00,  -1.43747790e+00,  -1.56961793e-01,  -1.42778141e-01,   3.48116644e-02, 
+              2.22054940e+00,   2.45987658e+00,  -3.93660499e-01,   2.95223481e-01,   2.40255509e+00, 
+             -2.83371822e+00 ]
          </q>
          <p shape='(1, 21)'>
-          [  -2.74792591e+00,   4.13858581e+00,  -1.82629756e+00,   1.30638688e+00,  -1.25440515e+00, 
-              4.42163743e-01,   8.95457533e-01,  -8.96258346e-01,  -6.65231414e-01,   9.98410709e-01, 
-             -8.72689081e-01,   3.38903550e+00,  -7.83616521e-01,  -1.27474374e+00,   8.62735579e-01, 
-             -1.17078638e+00,   1.15558824e+00,  -5.11941913e-01,   1.50207369e+00,  -9.96077728e-01, 
-             -1.69046393e+00 ]
+          [  -4.67019941e-01,   2.24185448e-01,  -1.46078488e+00,  -5.98259823e-01,  -3.23347730e-01, 
+             -2.08737597e+00,   9.57489037e-01,   3.52451313e-01,   1.04305122e+00,  -4.81619114e-01, 
+             -1.60138798e+00,   9.89808013e-01,   5.22856318e-01,  -8.15209250e-01,   1.56534206e+00, 
+             -3.32547012e-01,   1.30837584e+00,   1.52581939e-02,   3.99100535e-01,   8.54932358e-01, 
+             -6.52986359e-02 ]
          </p>
          <m shape='(7)'>
           [   2.91643931e+04,   1.83747161e+03,   1.83747161e+03,   2.91643931e+04,   1.83747161e+03, 
