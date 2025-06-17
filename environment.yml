@@ -6,7 +6,7 @@ dependencies:
   - jupyter
   - numpy
   - matplotlib
-  - jupytext
+  # - jupytext
   - ipi
   - pytorch>= 1.12
   - pip
