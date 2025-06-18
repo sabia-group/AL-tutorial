@@ -502,3 +502,14 @@ def timing(title="Duration"):
 #         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
 #             file_path = os.path.join(f'{folder}/results', filename)
 #             os.remove(file_path)
+
+def prepare_train_file(template, output_path:str, replacements: dict):
+    with open(template, 'r') as f:
+        content = f.read()
+
+    # Replace each key with its corresponding value
+    for key, value in replacements.items():
+        content = content.replace(key, str(value))
+
+    with open(output_path, 'w') as f:
+        f.write(content)
