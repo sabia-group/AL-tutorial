@@ -14,12 +14,12 @@ from mace.cli.run_train import main as mace_run_train_main          # train a MA
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
 #-------------------------#
-try:
-    from rich.console import Console
-    console = Console(width=200)  # or however wide you need
-    print = console.print
-except:
-    print = print
+# try:
+#     from rich.console import Console
+#     console = Console(width=200)  # or however wide you need
+#     print = console.print
+# except:
+#     print = print
 
 #-------------------------#
 def extxyz2energy(file:str,keyword:str="MACE_energy"):
