@@ -62,14 +62,34 @@ def eval_mace(model:str,infile:str,outfile:str):
         with redirect_stdout(fnull), redirect_stderr(fnull):
             mace_eval_configs_main()
 
-# #-------------------------#
-# def retrain_mace(config:str):
-#     """Train a MACE model using the provided configuration file.
-#     """
-#     sys.argv = ["program", "--config", config]
-#     with open(os.devnull, 'w') as fnull:
-#         with redirect_stdout(fnull), redirect_stderr(fnull):
-#             mace_run_train_main()
+#-------------------------#
+def forces2disagreement(forces:np.ndarray)->np.ndarray:
+    """Compute the atomic-level disagreement from a committee of MACE models."""
+    # average forces across committee members (shape: [n_samples, n_atoms, 3])
+    avg_forces = forces.mean(axis=0)
+
+    # compute deviations from mean force (shape: [n_committee, n_samples, n_atoms, 3])
+    dforces = forces - forces.mean(axis=0)[None, ...]
+
+    # compute atomic-level disagreement (standard deviation of force norm)
+    # - square, sum over x/y/z components -> norm²
+    # - average over committee members
+    # - take sqrt to get standard deviation per atom
+    disagreement_atomic = np.sqrt(((dforces**2).sum(axis=3)).mean(axis=0))
+
+    # average over atoms to get a single disagreement value per structure
+    return disagreement_atomic.mean(axis=1)
+
+def forces2rmse(forces: np.ndarray, ref_forces: np.ndarray) -> np.ndarray:
+    """Compute RMSE per structure between averaged predicted and reference forces."""
+    assert forces.ndim == 4                     # (committee, structures, atoms, 3)
+    assert ref_forces.ndim == 3                 # (structures, atoms, 3)
+    assert forces.shape[1:] == ref_forces.shape # shape check
+    avg = forces.mean(axis=0)                   # avg over committee
+    err2 = (avg - ref_forces)**2                # squared error
+    mse  = err2.sum(axis=2).mean(axis=1)        # sum over components, avg over atoms
+    return np.sqrt(mse)                         # RMSE per structure
+
    
 #-------------------------# 
 def run_single_aims_structure(structure: Atoms, folder: str, command: str, control: str) -> Atoms:
