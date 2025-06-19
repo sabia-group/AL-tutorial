@@ -3,7 +3,7 @@
     <output prefix='ipi'>
         <properties stride='20' filename='mean_properties.out'> [ 
             step, 
-            time{femtosecond}, 
+            time{picosecond}, 
             conserved{electronvolt}, 
             kinetic_md{electronvolt}, 
             potential{electronvolt}, 
@@ -27,26 +27,21 @@
     <total_steps> 20000 </total_steps> <!-- it should dissociate at arund step 5000-->
     <prng> <seed> 32342 </seed> </prng>
 
-    <!-- <ffcommittee name="committee"> -->
-        <!-- <active_output> active </active_output> -->
+    <ffsocket name='mace-0' mode='unix'>
+        <address> address-0 </address>
+    </ffsocket>
 
-        <ffsocket name='mace-0' mode='unix'>
-            <address> address-0 </address>
-        </ffsocket>
+    <ffsocket name='mace-1' mode='unix'>
+        <address> address-1 </address>
+    </ffsocket>
 
-        <ffsocket name='mace-1' mode='unix'>
-            <address> address-1 </address>
-        </ffsocket>
+    <ffsocket name='mace-2' mode='unix'>
+        <address> address-2 </address>
+    </ffsocket>
 
-        <ffsocket name='mace-2' mode='unix'>
-            <address> address-2 </address>
-        </ffsocket>
-
-        <ffsocket name='mace-3' mode='unix'>
-            <address> address-3 </address>
-        </ffsocket>
-
-    <!-- </ffcommittee> -->
+    <ffsocket name='mace-3' mode='unix'>
+        <address> address-3 </address>
+    </ffsocket>
 
     <system>
 
