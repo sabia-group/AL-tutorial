@@ -8,7 +8,7 @@ model_folder="/Users/krystofbrezina/Teaching/AL-tutorial/notebooks/qbc-work/mode
 
 if ${SOCKET}; then # parallel: this should be faster because the MACE models are run in parallel
     echo "Starting i-PI socket server..."
-    i-pi committee4nvt.ffsocket.xml &
+    i-pi input.xml &
     #i-pi RESTART &
 
     sleep 5  # or better: wait until socket files exist
