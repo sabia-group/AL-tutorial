@@ -14,14 +14,6 @@ from mace.cli.run_train import main as mace_run_train_main          # train a MA
 from mace.cli.eval_configs import main as mace_eval_configs_main    # evaluate a MACE model
 
 #-------------------------#
-# try:
-#     from rich.console import Console
-#     console = Console(width=200)  # or however wide you need
-#     print = console.print
-# except:
-#     print = print
-
-#-------------------------#
 def extxyz2energy(file:str,keyword:str="MACE_energy"):
     """Extracts the energy values from an extxyz file and returns a numpy array
     """
@@ -78,6 +70,7 @@ def forces2disagreement(forces:np.ndarray)->np.ndarray:
     # average over atoms to get a single disagreement value per structure
     return disagreement_atomic.mean(axis=1)
 
+#-------------------------#
 def forces2rmse(forces: np.ndarray, ref_forces: np.ndarray) -> np.ndarray:
     """Compute RMSE per structure between averaged predicted and reference forces."""
     assert forces.ndim == 4                     # (committee, structures, atoms, 3)
@@ -88,7 +81,6 @@ def forces2rmse(forces: np.ndarray, ref_forces: np.ndarray) -> np.ndarray:
     mse  = err2.sum(axis=2).mean(axis=1)        # sum over components, avg over atoms
     return np.sqrt(mse)                         # RMSE per structure
 
-   
 #-------------------------# 
 def run_single_aims_structure(structure: Atoms, folder: str, command: str, control: str) -> Atoms:
     """
@@ -202,6 +194,30 @@ def _correct_read(atoms:Atoms)->Atoms:
     atoms.calc = None 
     return atoms
 
+#-------------------------#        
+def copy_files_in_folder(src,dst):
+    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
+
+#-------------------------#
+@contextmanager
+def timing(title="Duration"):
+    start = time.time()
+    yield
+    end = time.time()
+    print(f"\t{title}: {end - start:.2f}s")
+
+#-------------------------#
+def prepare_train_file(template, output_path:str, replacements: dict):
+    with open(template, 'r') as f:
+        content = f.read()
+
+    # Replace each key with its corresponding value
+    for key, value in replacements.items():
+        content = content.replace(key, str(value))
+
+    with open(output_path, 'w') as f:
+        f.write(content)
+
 #-------------------------#
 GLOBAL_CONFIG_PATH = None
 def train_single_model(n_config):
@@ -228,240 +244,222 @@ def run_qbc(init_train_folder:str,
             calculator_factory:callable=None,
             parallel:bool=True):
     """
-    Main QbC loop.
+    Main Query-by-Committee (QbC) iterative training loop.
+
     Parameters
     ----------
-    fns_committee : List[str]
-        List of MACE model files.
+    init_train_folder : str
+        Folder containing initial training models and checkpoints.
+    init_train_file : str
+        File with initial training structures.
     fn_candidates : str
-        Filename of the candidates file.
+        File with candidate structures for evaluation.
     n_iter : int
-        Number of QbC iterations.
-    config: str
-        Folder where the MACE configuration files are stored.
-        The code will expect the files to be named config.0.yml, config.1.yml, etc.
-    ofolder: str
-        Folder where to store the QbC results.
-    n_add_iter : int
-        Number of structures to add to the training set in each iteration.
-    recalculate_selected : bool
-        If True, the selected structures will be recalculated using the ASE calculator.
-    calculator : ASE calculator
-        ASE calculator to use for the recalculation of the selected structures.
+        Total number of QbC iterations to perform.
+    config : str
+        Directory with MACE configuration files named config.0.yml, config.1.yml, etc.
+    test_dataset : str, optional
+        Dataset file for testing model performance (default is None).
+    ofolder : str, optional
+        Output folder to save QbC results (default "qbc-work").
+    n_add_iter : int, optional
+        Number of new candidates to add to training set per iteration (default 10).
+    recalculate_selected : bool, optional
+        If True, recompute energies and forces for selected structures using ASE calculator (default False).
+    calculator_factory : callable, optional
+        Factory function to create ASE calculators for recomputation (required if recalculate_selected=True).
+    parallel : bool, optional
+        Whether to train models in parallel (default True).
     """
-    # TODO: Add the possibility of attaching a ASE calculator for later when we need to address unlabeled data.
-    # TODO: think about striding the candidates to make it more efficient
-    # TODO: start from training set size 0?
-    
+    # TODO: Add support to attach ASE calculator for unlabeled data handling.
+    # TODO: Consider subsampling candidates to improve efficiency.
+    # TODO: Allow starting with an empty training set?
+
     if recalculate_selected:
-        assert calculator_factory is not None, "You need to provide as ASE calculator if you want to recalculate energy and forces on the fly."
+        assert calculator_factory is not None, "Must provide ASE calculator factory to recalculate energies and forces."
 
     #-------------------------#
-    # Folders preparation
+    # Prepare output directories
     #-------------------------#
-    folders = [ofolder,f"{ofolder}/eval",f"{ofolder}/structures",f"{ofolder}/models",f"{ofolder}/checkpoints"]
+    folders = [ofolder,
+               f"{ofolder}/eval",
+               f"{ofolder}/structures",
+               f"{ofolder}/models",
+               f"{ofolder}/checkpoints"]
     for f in folders:
         os.makedirs(f, exist_ok=True)
         
     #-------------------------#
-    # Copy models and checkpoints to new folder
+    # Copy initial models and checkpoints to output folder
     #-------------------------#
-    copy_files_in_folder(f"{init_train_folder}/checkpoints/",f"{ofolder}/checkpoints/")
-    copy_files_in_folder(f"{init_train_folder}/models/",f"{ofolder}/models/")
-    
+    copy_files_in_folder(f"{init_train_folder}/checkpoints/", f"{ofolder}/checkpoints/")
+    copy_files_in_folder(f"{init_train_folder}/models/", f"{ofolder}/models/")
     
     #-------------------------#
-    # Banner
+    # Display run summary banner
     #-------------------------#
     model_dir = os.path.join(ofolder, "models")
     n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*_compiled.model")))
-    assert n_committee > 1, "error"
+    assert n_committee > 1, "Committee must contain more than one model."
 
     print(f'Starting QbC.')
-    print(f"Number of models: {n_committee:d}")
+    print(f"Number of models in committee: {n_committee:d}")
     print(f"Number of iterations: {n_iter:d}")
-    print(f"Number of new candidates at each iteration: {n_add_iter:d}")
+    print(f"Number of new candidates added per iteration: {n_add_iter:d}")
     print(f"Candidates file: {fn_candidates}")
-    print(f"Test file: {test_dataset}")
+    print(f"Test dataset: {test_dataset}")
     
     #-------------------------#
-    # Preparation
+    # Load initial datasets
     #-------------------------#
     shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
     fn_candidates = f'{ofolder}/candidates.start.extxyz'
     
-    candidates:List[Atoms] = read(fn_candidates, index=':')
-    training_set:List[Atoms] = read(init_train_file,index=':')
+    candidates: List[Atoms] = read(fn_candidates, index=':')
+    training_set: List[Atoms] = read(init_train_file, index=':')
     progress_disagreement = []
     
     #-------------------------#
-    # Look for models
+    # Initialize model filenames in the committee
     #-------------------------#
-    fns_committee = [None]*n_committee
-    for n in range(n_committee):
-        fns_committee[n] = f'{ofolder}/models/mace.com={n}_compiled.model'
+    fns_committee = [f'{ofolder}/models/mace.com={n}_compiled.model' for n in range(n_committee)]
     
     #-------------------------#
-    # QbC loop
+    # Main QbC iterative loop
     #-------------------------#    
     for iter in range(n_iter):
         start_time = time.time()
         start_datetime = datetime.now()
         print(f'\n\t--------------------------------------------------------------------')
-        print(f'\tStart of QbC iteration {iter+1:d}/{n_iter:d}\n')
+        print(f'\tStarting QbC iteration {iter+1:d}/{n_iter:d}')
         print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         
         #-------------------------#
-        # 1) Model evaluation
+        # 1) Evaluate all candidates with each committee model
         #-------------------------# 
-    
-        # predict disagreement on all candidates
-        # KB: working version of using force disagreement instead of energy disagreement
-        print(f'\tPredicting committee disagreement across the candidate pool.')
-        #energies = [None]*len(fns_committee)
+        print(f'\tEvaluating committee disagreement across candidate pool.')
+        
         forces = []
         for n, model in enumerate(fns_committee):
             fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
-            eval_mace(model, fn_candidates, fn_dump) # Explicit arguments!
-            #e = extxyz2energy(fn_dump)
-            #energies[n] = e
-            f = extxyz2array(fn_dump)
+            eval_mace(model, fn_candidates, fn_dump)  # Evaluate model on candidates
+            
+            f = extxyz2array(fn_dump)  # Extract forces from output
             forces.append(f)
             
             if test_dataset is not None:
                 eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
                 
         #-------------------------#
-        # 2) Disagreement calculation
+        # 2) Calculate disagreement among committee predictions
         #-------------------------# 
-            
-        #energies = np.array(energies)
         forces = np.array(forces)
-        #disagreement = forces.std(axis=0)
         dforces = forces - forces.mean(axis=0)[None, ...]
-        disagreement_atomic = np.sqrt( ( (dforces**2).sum(axis=3) ).mean(axis=0) )
+        disagreement_atomic = np.sqrt(((dforces**2).sum(axis=3)).mean(axis=0))
         disagreement = disagreement_atomic.mean(axis=1)
         avg_disagreement_pool = disagreement.mean()
 
-        # pick the `n_add_iter` highest-disagreement structures
-        print(f'\tPicking {n_add_iter:d} new highest-disagreement data points.')
-        #idcs_selected = np.argsort(disagreement.mean(axis=(1, 2)))[-n_add_iter:]
+        # Select top candidates with highest disagreement
+        print(f'\tSelecting {n_add_iter:d} candidates with highest disagreement.')
         idcs_selected = np.argsort(disagreement)[-n_add_iter:]
-        # print("\t",idcs_selected)
-
-        
         disagreement_selected = disagreement[idcs_selected]
         avg_disagreement_selected = disagreement_selected.mean()
         
-        progress_disagreement.append(np.array([ avg_disagreement_selected,\
-                                                avg_disagreement_pool,\
-                                                np.std(disagreement_selected),\
-                                                np.std(disagreement),\
-                                                len(training_set),len(candidates)]))
+        progress_disagreement.append(np.array([avg_disagreement_selected,
+                                               avg_disagreement_pool,
+                                               np.std(disagreement_selected),
+                                               np.std(disagreement),
+                                               len(training_set),
+                                               len(candidates)]))
         
-        to_evaluate:List[Atoms] = [candidates[i] for i in idcs_selected]
+        to_evaluate: List[Atoms] = [candidates[i] for i in idcs_selected]
         
         #-------------------------#
-        # 3.a) Energies and forces re-calculation (optional)
+        # 3.a) Optional: Recalculate energies and forces using ASE calculator
         #-------------------------#
         if recalculate_selected:
             assert calculator_factory is not None, \
-                'If a first-principles recalculation of training data is requested, a corresponding ASE calculator must be assigned.'
-            print(f'\tRecalculating ab initio energies and forces for new data points.')
+                'ASE calculator factory required for ab initio recalculation of selected data.'
+            print(f'\tRecalculating ab initio energies and forces for selected candidates.')
             
             start_time_train = time.time()
-            # print("\n\tAb initio calculations:")
-            
             Nai = len(to_evaluate)
-            for n,structure in enumerate(to_evaluate):
-                print(f"\tAb initio calculations: {n+1:3}/{Nai:3}",end="\r")
-                structure.calc = calculator_factory(n,None)
+            for n, structure in enumerate(to_evaluate):
+                print(f"\tAb initio calculation {n+1:3}/{Nai:3}", end="\r")
+                structure.calc = calculator_factory(n, None)
                 structure.info = {}
                 structure.arrays = {
-                    "positions" : structure.get_positions(),
-                    "numbers" : structure._get_atomic_numbers()
+                    "positions": structure.get_positions(),
+                    "numbers": structure._get_atomic_numbers()
                 }
-                structure.get_potential_energy() # this will trigger the calculation
-                results:dict = structure.calc.results
-                for key,value in results.items():
-                    if key in ['energy','free_energy','dipole','stress']:
+                structure.get_potential_energy()  # Triggers calculation
+                
+                results: dict = structure.calc.results
+                for key, value in results.items():
+                    if key in ['energy', 'free_energy', 'dipole', 'stress']:
                         structure.info[f"REF_{key}"] = value
-                    elif key in ['forces']:
+                    elif key == 'forces':
                         structure.arrays["REF_forces"] = value
-                    else: 
+                    else:
                         structure.info[f"REF_{key}"] = value
                 structure.calc = None
-                # print(structure.info.keys())
-                # structure.info["REF_energy"] = structure.info["energy"].pop()
-                # structure.info["REF_forces"] = structure.info["forces"].pop()
                 
             end_time_train = time.time()
-        
             elapsed = end_time_train - start_time_train
-            print(f'\n\tTime spent in ab initio calculations:   {elapsed:.2f} seconds')
+            print(f'\n\tTime spent on ab initio calculations: {elapsed:.2f} seconds')
             
         #-------------------------#
-        # 3.b) Dataset updating
+        # 3.b) Update training and candidate datasets
         #-------------------------#
-        
         training_set.extend(to_evaluate)
         candidates = [item for i, item in enumerate(candidates) if i not in idcs_selected]
         
-        # update the candidate file name
         new_candidates = f'{ofolder}/structures/candidates.n={iter}.extxyz'
         write(new_candidates, candidates, format='extxyz')
         fn_candidates = new_candidates
-        
                 
         #-------------------------#
-        # 3.c) Dataset updating
+        # 3.c) Save updated training set
         #-------------------------#
-        
-        # update the training set file name
         new_training_set = f'{ofolder}/structures/train-iter.n={iter}.extxyz'
         write(new_training_set, training_set, format='extxyz')
-        shutil.copy(new_training_set, f'{ofolder}/train-iter.extxyz') # MACE will use this file to train
+        shutil.copy(new_training_set, f'{ofolder}/train-iter.extxyz')  # File used by MACE training
         
         #-------------------------#
-        # 4) Models training
+        # 4) Retrain committee models with updated training set
         #-------------------------#
-        # retrain the committee with the enriched training set
         start_time_train = time.time()
-        print(f'\tRetraining committee.')
-        # TODO: add model refinement: check that it is actually done
+        print(f'\tRetraining committee models.')
+        
         global GLOBAL_CONFIG_PATH
         GLOBAL_CONFIG_PATH = config
         
-        if parallel: # parallel version
+        if parallel:
             with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
                 pool.map(train_single_model, range(n_committee))
-                
-        else: # serial version
+        else:
             for n in range(n_committee):
                 train_single_model(n)
-        end_time_train = time.time()
         
+        end_time_train = time.time()
         elapsed = end_time_train - start_time_train
-        print(f'\ttraining duration:   {elapsed:.2f} seconds')
-                
-        # clean_output(ofolder,n_committee)
+        print(f'\tTraining duration: {elapsed:.2f} seconds')
         
         #-------------------------#
-        # Final messages
+        # Summary of iteration results
         #-------------------------#
         print(f'\n\tResults:')
-        print(f'\t               Disagreement (pool): {avg_disagreement_pool:06f} eV')
-        print(f'\t           Disagreement (selected): {avg_disagreement_selected:06f} eV')
-        print(f'\t                New training set size: {len(training_set):d}')
-        print(f'\t               New candidate set size: {len(candidates):d}')
+        print(f'\t    Disagreement (pool average): {avg_disagreement_pool:06f} eV')
+        print(f'\tDisagreement (selected candidates): {avg_disagreement_selected:06f} eV')
+        print(f'\t          Training set size now: {len(training_set):d}')
+        print(f'\t          Candidate set size now: {len(candidates):d}')
         
         end_time = time.time()
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        # print(f'\n\tEnd of QbC iteration {iter+1:d}/{n_iter:d}')
         print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
-        print(f'\tDuration:   {elapsed:.2f} seconds')
+        print(f'\tIteration duration: {elapsed:.2f} seconds')
         
         header = "\
 selected-mean\n\
@@ -471,68 +469,19 @@ pool-std\n\
 training-set-size\n\
 candidate-set-size\
 "
-        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement,header=header,fmt='%12.8f')
+        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement, header=header, fmt='%12.8f')
         
     #-------------------------#
-    # Finalize
+    # Finalize QbC process
     #-------------------------#
     print(f'\n\t--------------------------------------------------------------------')
-    print(f'\tEnd of QbC loop.\n')
+    print(f'\tQbC loop finished.\n')
     print(f'\tFinal training set size: {len(training_set):d}')
     print(f'\tFinal candidate set size: {len(candidates):d}')
             
-    # dump final training set
+    # Save final training set
     write(f'{ofolder}/train-final.extxyz', training_set, format='extxyz')
     
     os.remove(f'{ofolder}/train-iter.extxyz')
     
     return
-  
-#-------------------------#        
-def copy_files_in_folder(src,dst):
-    [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
-
-#-------------------------#
-@contextmanager
-def timing(title="Duration"):
-    start = time.time()
-    yield
-    end = time.time()
-    print(f"\t{title}: {end - start:.2f}s")
-
-#-------------------------#  
-# def clean_output(folder,n_committee):
-#     # remove useless files
-#     for filename in os.listdir(f'{folder}/log'):
-#         if filename.endswith('_debug.log'):
-#             file_path = os.path.join(f'{folder}/log', filename)
-#             os.remove(file_path)
-            
-#     for n in range(n_committee):
-        
-#         # models
-#         filenames = [f"{folder}/models/mace.com={n}.model",
-#                     f"{folder}/models/mace.com={n}_compiled.model",
-#                     f"{folder}/models/mace.com={n}_stagetwo.model"]
-#         for filename in filenames:
-#             if os.path.exists(filename):
-#                 os.remove(filename)
-        
-#         if os.path.exists(f"{folder}/models/mace.com={n}_stagetwo_compiled.model"):
-#             os.rename(f"{folder}/models/mace.com={n}_stagetwo_compiled.model",f"{folder}/models/mace.n={n}.model")
-        
-#     for filename in os.listdir(f'{folder}/results'):
-#         if filename.endswith('.txt') or filename.endswith('stage_one.png'):
-#             file_path = os.path.join(f'{folder}/results', filename)
-#             os.remove(file_path)
-
-def prepare_train_file(template, output_path:str, replacements: dict):
-    with open(template, 'r') as f:
-        content = f.read()
-
-    # Replace each key with its corresponding value
-    for key, value in replacements.items():
-        content = content.replace(key, str(value))
-
-    with open(output_path, 'w') as f:
-        f.write(content)
