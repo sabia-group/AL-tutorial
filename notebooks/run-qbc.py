@@ -1,6 +1,9 @@
 from myfunctions import run_qbc        # run Query by Committee
 import numpy as np
 
+import matplotlib
+matplotlib.use('Agg')  # Use non-GUI backend for saving plots to file
+
 # MACE committee
 n_init_train = 20   # number of initial training structures
 n_test       = 50   # number of test structures
