@@ -65,8 +65,6 @@ def eval_mace(model:str,infile:str,outfile:str):
 #-------------------------#
 def forces2disagreement(forces:np.ndarray)->np.ndarray:
     """Compute the atomic-level disagreement from a committee of MACE models."""
-    # average forces across committee members (shape: [n_samples, n_atoms, 3])
-    avg_forces = forces.mean(axis=0)
 
     # compute deviations from mean force (shape: [n_committee, n_samples, n_atoms, 3])
     dforces = forces - forces.mean(axis=0)[None, ...]
