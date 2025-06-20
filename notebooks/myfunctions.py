@@ -46,17 +46,32 @@ def train_mace(config:str):
             mace_run_train_main()
     
 #-------------------------#
-def eval_mace(model:str,infile:str,outfile:str):
+def eval_mace(model:str,infile:str,outfile:str,dtype:str="float32",batch_size:int=4):
     """Evaluate a MACE model.
     """
-    sys.argv = ["program", "--config", infile,"--output",outfile,"--model",model]
+    sys.argv = ["program", 
+                "--config", infile,
+                "--output",outfile,
+                "--model",model,
+                "--default_dtype",dtype,
+                "--batch_size",str(batch_size)]
     with open(os.devnull, 'w') as fnull:
         with redirect_stdout(fnull), redirect_stderr(fnull):
             mace_eval_configs_main()
 
+def eval_and_extract(args):
+    model, fn_in, fn_out, xtr = args
+    eval_mace(model, fn_in, fn_out)
+    if xtr:
+        return extxyz2array(fn_out)
+    else:
+        return
+
 #-------------------------#
 def forces2disagreement(forces:np.ndarray)->np.ndarray:
     """Compute the atomic-level disagreement from a committee of MACE models."""
+    
+    forces = np.array(forces)  # Ensure forces is a numpy array
 
     # compute deviations from mean force (shape: [n_committee, n_samples, n_atoms, 3])
     dforces = forces - forces.mean(axis=0)[None, ...]
@@ -317,7 +332,7 @@ def run_qbc(init_train_folder:str,
     
     candidates: List[Atoms] = read(fn_candidates, index=':')
     training_set: List[Atoms] = read(init_train_file, index=':')
-    progress_disagreement = []
+    progress_disagreement = [None]*n_iter
     
     #-------------------------#
     # Initialize model filenames in the committee
@@ -332,45 +347,65 @@ def run_qbc(init_train_folder:str,
         start_datetime = datetime.now()
         print(f'\n\t--------------------------------------------------------------------')
         print(f'\tStarting QbC iteration {iter+1:d}/{n_iter:d}')
-        print(f'\tStarted at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+        print(f'\n\t    Started at: {start_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         
         #-------------------------#
         # 1) Evaluate all candidates with each committee model
         #-------------------------# 
-        print(f'\tEvaluating committee disagreement across candidate pool.')
+        print(f'\t    Evaluating committee disagreement across candidate pool.')
+        start_time_train = time.time()
+        forces = [None]* n_committee  # Store forces from each model
         
-        forces = []
-        for n, model in enumerate(fns_committee):
-            fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
-            eval_mace(model, fn_candidates, fn_dump)  # Evaluate model on candidates
+        if parallel:
             
-            f = extxyz2array(fn_dump)  # Extract forces from output
-            forces.append(f)
-            
+            # train datasets
+            args_list = [
+                (model, fn_candidates, f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz", True)
+                for n, model in enumerate(fns_committee)
+            ]
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+                forces = pool.map(eval_and_extract, args_list)
+                
             if test_dataset is not None:
-                eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
+                # test datasets
+                args_list = [
+                    (model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz", False)
+                    for n, model in enumerate(fns_committee)
+                ]
+                with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+                    pool.map(eval_and_extract, args_list)
+                    
+        else:
+            for n, model in enumerate(fns_committee):
+                fn_dump = f"{ofolder}/eval/train.model={n}.iter={iter}.extxyz"
+                eval_mace(model, fn_candidates, fn_dump)  # Evaluate model on candidates
+                forces[n] = extxyz2array(fn_dump)
+                
+                if test_dataset is not None:
+                    eval_mace(model, test_dataset, f"{ofolder}/eval/test.model={n}.iter={iter}.extxyz")
+                
+        end_time_train = time.time()
+        elapsed = end_time_train - start_time_train
+        print(f'\t    Evaluation duration: {elapsed:.2f} seconds')
                 
         #-------------------------#
         # 2) Calculate disagreement among committee predictions
         #-------------------------# 
-        forces = np.array(forces)
-        dforces = forces - forces.mean(axis=0)[None, ...]
-        disagreement_atomic = np.sqrt(((dforces**2).sum(axis=3)).mean(axis=0))
-        disagreement = disagreement_atomic.mean(axis=1)
+        disagreement = 1000*forces2disagreement(forces)  # Calculate atomic-level disagreement
         avg_disagreement_pool = disagreement.mean()
 
         # Select top candidates with highest disagreement
-        print(f'\tSelecting {n_add_iter:d} candidates with highest disagreement.')
+        print(f'\t    Selecting {n_add_iter:d} candidates with highest disagreement.')
         idcs_selected = np.argsort(disagreement)[-n_add_iter:]
         disagreement_selected = disagreement[idcs_selected]
         avg_disagreement_selected = disagreement_selected.mean()
         
-        progress_disagreement.append(np.array([avg_disagreement_selected,
+        progress_disagreement[iter] = np.array([avg_disagreement_selected,
                                                avg_disagreement_pool,
                                                np.std(disagreement_selected),
                                                np.std(disagreement),
                                                len(training_set),
-                                               len(candidates)]))
+                                               len(candidates)])
         
         to_evaluate: List[Atoms] = [candidates[i] for i in idcs_selected]
         
@@ -380,12 +415,12 @@ def run_qbc(init_train_folder:str,
         if recalculate_selected:
             assert calculator_factory is not None, \
                 'ASE calculator factory required for ab initio recalculation of selected data.'
-            print(f'\tRecalculating ab initio energies and forces for selected candidates.')
+            print(f'\t    Recalculating ab initio energies and forces for selected candidates.')
             
             start_time_train = time.time()
             Nai = len(to_evaluate)
             for n, structure in enumerate(to_evaluate):
-                print(f"\tAb initio calculation {n+1:3}/{Nai:3}", end="\r")
+                print(f"\t    Ab initio calculation {n+1:3}/{Nai:3}", end="\r")
                 structure.calc = calculator_factory(n, None)
                 structure.info = {}
                 structure.arrays = {
@@ -406,7 +441,7 @@ def run_qbc(init_train_folder:str,
                 
             end_time_train = time.time()
             elapsed = end_time_train - start_time_train
-            print(f'\n\tTime spent on ab initio calculations: {elapsed:.2f} seconds')
+            print(f'\n\t    Time spent on ab initio calculations: {elapsed:.2f} seconds')
             
         #-------------------------#
         # 3.b) Update training and candidate datasets
@@ -429,7 +464,7 @@ def run_qbc(init_train_folder:str,
         # 4) Retrain committee models with updated training set
         #-------------------------#
         start_time_train = time.time()
-        print(f'\tRetraining committee models.')
+        print(f'\t    Retraining committee models.')
         
         global GLOBAL_CONFIG_PATH
         GLOBAL_CONFIG_PATH = config
@@ -443,23 +478,23 @@ def run_qbc(init_train_folder:str,
         
         end_time_train = time.time()
         elapsed = end_time_train - start_time_train
-        print(f'\tTraining duration: {elapsed:.2f} seconds')
+        print(f'\t    Training duration: {elapsed:.2f} seconds')
         
         #-------------------------#
         # Summary of iteration results
         #-------------------------#
-        print(f'\n\tResults:')
-        print(f'\t    Disagreement (pool average): {avg_disagreement_pool:06f} eV')
-        print(f'\tDisagreement (selected candidates): {avg_disagreement_selected:06f} eV')
-        print(f'\t          Training set size now: {len(training_set):d}')
-        print(f'\t          Candidate set size now: {len(candidates):d}')
+        print(f'\n\t    Results:')
+        print(f'\t    Disagreement (pool average): {avg_disagreement_pool:06f} meV/ang')
+        print(f'\t    Disagreement (selected candidates): {avg_disagreement_selected:06f} meV/ang')
+        print(f'\t    Training set size now: {len(training_set):d}')
+        print(f'\t    Candidate set size now: {len(candidates):d}')
         
         end_time = time.time()
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        print(f'\tEnded at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
-        print(f'\tIteration duration: {elapsed:.2f} seconds')
+        print(f'\t    Ended at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+        print(f'\t    Iteration duration: {elapsed:.2f} seconds')
         
         header = "\
 selected-mean\n\
@@ -469,7 +504,7 @@ pool-std\n\
 training-set-size\n\
 candidate-set-size\
 "
-        np.savetxt(f'{ofolder}/disagreement.txt', progress_disagreement, header=header, fmt='%12.8f')
+        np.savetxt(f'{ofolder}/disagreement.txt', np.array(progress_disagreement[:iter+1]), header=header, fmt='%12.8f')
         
     #-------------------------#
     # Finalize QbC process
