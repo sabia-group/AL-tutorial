@@ -21,4 +21,4 @@ wait
 
 # Post-processing
 # echo "Running post-processing..."
-# python ../post-process.py -i ipi.pos_0.extxyz -o eigen-inference.extxyz
+# python ../post-process.py -i ipi.pos_0.extxyz -o zundel-inference.extxyz
