@@ -4,7 +4,7 @@ set -e
 
 SOCKET=true
 #model_folder="../../checkpoints/models"
-model_folder="/Users/krystofbrezina/Teaching/AL-tutorial/notebooks/qbc-work/models"
+model_folder="/qbc-work/models"
 
 if ${SOCKET}; then # parallel: this should be faster because the MACE models are run in parallel
     echo "Starting i-PI socket server..."
