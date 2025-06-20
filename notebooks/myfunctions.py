@@ -1,9 +1,5 @@
-import shutil
-import os, sys, glob
-import multiprocessing
+import os, sys, glob, time, shutil, multiprocessing
 from datetime import datetime
-import time
-from contextlib import contextmanager
 import numpy as np
 from typing import List, Dict, Union
 from ase import Atoms
@@ -214,14 +210,6 @@ def copy_files_in_folder(src,dst):
     [shutil.copy(f"{src}/{f}", dst) for f in os.listdir(src) if os.path.isfile(f"{src}/{f}")]
 
 #-------------------------#
-@contextmanager
-def timing(title="Duration"):
-    start = time.time()
-    yield
-    end = time.time()
-    print(f"\t{title}: {end - start:.2f}s")
-
-#-------------------------#
 def prepare_train_file(template, output_path:str, replacements: dict):
     with open(template, 'r') as f:
         content = f.read()
@@ -286,9 +274,6 @@ def run_qbc(init_train_folder:str,
     parallel : bool, optional
         Whether to train models in parallel (default True).
     """
-    # TODO: Add support to attach ASE calculator for unlabeled data handling.
-    # TODO: Consider subsampling candidates to improve efficiency.
-    # TODO: Allow starting with an empty training set?
 
     if recalculate_selected:
         assert calculator_factory is not None, "Must provide ASE calculator factory to recalculate energies and forces."

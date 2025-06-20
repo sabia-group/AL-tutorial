@@ -1,5 +1,5 @@
 # You can modify the following parameters
-num_channels: 16
+num_channels: 4
 max_L: 0            # take it larger but not smaller
 max_ell: 1          # take it larger but not smaller
 correlation: 1      # take it larger but not smaller
