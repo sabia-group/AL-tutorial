@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+export OMP_NUM_THREADS=4
 source "${IPIPATH}/env.sh"
 
 SOCKET=true

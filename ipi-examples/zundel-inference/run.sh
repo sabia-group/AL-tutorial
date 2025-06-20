@@ -1,9 +1,9 @@
 #!/bin/bash
-set -euo pipefail
 source "${IPIPATH}/env.sh"
 
 echo "Starting i-PI socket server..."
-stdbuf -oL -eL i-pi input.xml > ipi.log 2>&1 &
+export OMP_NUM_THREADS=4
+i-pi input.xml > ipi.log 2>&1 &
 
 # Optional: wait until i-PI socket is ready instead of fixed sleep
 # Use a more robust method, e.g., checking for socket existence
