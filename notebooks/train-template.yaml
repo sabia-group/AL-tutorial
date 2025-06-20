@@ -5,15 +5,15 @@ max_ell: 1          # take it larger but not smaller
 correlation: 1      # take it larger but not smaller
 num_interactions: 2 # take it larger but not smaller
 
-# num_radial_basis: 5
-# num_cutoff_basis: 3
+num_radial_basis: 5
+num_cutoff_basis: 3
 
 # ... but you can also modify these ones
-r_max: 4.0
+r_max: 3.0
 batch_size: 4
-# valid_batch_size: 4
+valid_batch_size: 4
 # valid_fraction: 0.2
-max_num_epochs: 10000 # this is basically early stopping
+max_num_epochs: 1000 # this is basically early stopping
 patience: 20
 
 # But please, do not modify these parameters!
@@ -37,3 +37,4 @@ device: cpu
 swa: false
 seed: SEED
 restart_latest: RESTART
+default_dtype : DTYPE
