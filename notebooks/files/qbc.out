@@ -1,0 +1,185 @@
+/home/stoccoel/programs/miniforge/envs/alt/lib/python3.9/site-packages/e3nn/o3/_wigner.py:10: UserWarning: Environment variable TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD detected, since the`weights_only` argument was not explicitly passed to `torch.load`, forcing weights_only=False.
+  _Jd, _W3j_flat, _W3j_indices = torch.load(os.path.join(os.path.dirname(__file__), 'constants.pt'))
+cuequivariance or cuequivariance_torch is not available. Cuequivariance acceleration will be disabled.
+Starting QbC.
+Number of models: 4
+Number of iterations: 10
+Number of new candidates at each iteration: 10
+Candidates file: init-train/structures/candidates.extxyz
+Test file: init-train/structures/test.extxyz
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 1/10
+
+	Started at: 2025-06-19 11:16:13
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   13.85 seconds
+
+	Results:
+	               Disagreement (pool): 0.154905 eV
+	           Disagreement (selected): 0.309127 eV
+	                New training set size: 30
+	               New candidate set size: 920
+	Ended at:   2025-06-19 11:16:39
+	Duration:   26.41 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 2/10
+
+	Started at: 2025-06-19 11:16:39
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   15.65 seconds
+
+	Results:
+	               Disagreement (pool): 0.076241 eV
+	           Disagreement (selected): 0.131876 eV
+	                New training set size: 40
+	               New candidate set size: 910
+	Ended at:   2025-06-19 11:17:07
+	Duration:   27.78 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 3/10
+
+	Started at: 2025-06-19 11:17:07
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   22.02 seconds
+
+	Results:
+	               Disagreement (pool): 0.099926 eV
+	           Disagreement (selected): 0.159527 eV
+	                New training set size: 50
+	               New candidate set size: 900
+	Ended at:   2025-06-19 11:17:43
+	Duration:   36.04 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 4/10
+
+	Started at: 2025-06-19 11:17:43
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   27.02 seconds
+
+	Results:
+	               Disagreement (pool): 0.083080 eV
+	           Disagreement (selected): 0.124073 eV
+	                New training set size: 60
+	               New candidate set size: 890
+	Ended at:   2025-06-19 11:18:22
+	Duration:   39.53 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 5/10
+
+	Started at: 2025-06-19 11:18:22
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   28.87 seconds
+
+	Results:
+	               Disagreement (pool): 0.074685 eV
+	           Disagreement (selected): 0.132098 eV
+	                New training set size: 70
+	               New candidate set size: 880
+	Ended at:   2025-06-19 11:19:04
+	Duration:   41.18 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 6/10
+
+	Started at: 2025-06-19 11:19:04
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   34.74 seconds
+
+	Results:
+	               Disagreement (pool): 0.085465 eV
+	           Disagreement (selected): 0.135936 eV
+	                New training set size: 80
+	               New candidate set size: 870
+	Ended at:   2025-06-19 11:19:50
+	Duration:   46.97 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 7/10
+
+	Started at: 2025-06-19 11:19:50
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   39.03 seconds
+
+	Results:
+	               Disagreement (pool): 0.064087 eV
+	           Disagreement (selected): 0.105100 eV
+	                New training set size: 90
+	               New candidate set size: 860
+	Ended at:   2025-06-19 11:20:41
+	Duration:   50.82 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 8/10
+
+	Started at: 2025-06-19 11:20:41
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   39.08 seconds
+
+	Results:
+	               Disagreement (pool): 0.063274 eV
+	           Disagreement (selected): 0.101639 eV
+	                New training set size: 100
+	               New candidate set size: 850
+	Ended at:   2025-06-19 11:21:32
+	Duration:   50.75 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 9/10
+
+	Started at: 2025-06-19 11:21:32
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   58.61 seconds
+
+	Results:
+	               Disagreement (pool): 0.059119 eV
+	           Disagreement (selected): 0.089820 eV
+	                New training set size: 110
+	               New candidate set size: 840
+	Ended at:   2025-06-19 11:22:42
+	Duration:   70.19 seconds
+
+	--------------------------------------------------------------------
+	Start of QbC iteration 10/10
+
+	Started at: 2025-06-19 11:22:42
+	Predicting committee disagreement across the candidate pool.
+	Picking 10 new highest-disagreement data points.
+	Retraining committee.
+	training duration:   42.33 seconds
+
+	Results:
+	               Disagreement (pool): 0.067842 eV
+	           Disagreement (selected): 0.098406 eV
+	                New training set size: 120
+	               New candidate set size: 830
+	Ended at:   2025-06-19 11:23:36
+	Duration:   53.86 seconds
+
+	--------------------------------------------------------------------
+	End of QbC loop.
+
+	Final training set size: 120
+	Final candidate set size: 830

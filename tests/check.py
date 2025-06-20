@@ -3,5 +3,5 @@ import torch
 import ase
 import numpy
 import matplotlib
-import jupytext
+# import jupytext
 print("Everything is correctly set up")

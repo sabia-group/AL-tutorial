@@ -1,0 +1,39 @@
+# You can modify the following parameters
+num_channels: 16
+max_L: 0            # take it larger but not smaller
+max_ell: 1          # take it larger but not smaller
+correlation: 1      # take it larger but not smaller
+num_interactions: 2 # take it larger but not smaller
+
+# num_radial_basis: 5
+# num_cutoff_basis: 3
+
+# ... but you can also modify these ones
+r_max: 4.0
+batch_size: 4
+# valid_batch_size: 4
+# valid_fraction: 0.2
+max_num_epochs: 10000 # this is basically early stopping
+patience: 20
+
+# But please, do not modify these parameters!
+model: "MACE"
+name: "NAME"
+
+model_dir      : "TRAIN_FOLDER/models"
+log_dir        : "TRAIN_FOLDER/log"
+checkpoints_dir: "TRAIN_FOLDER/checkpoints"
+results_dir    : "TRAIN_FOLDER/results"
+train_file     : "TRAIN_FILE"
+
+energy_key: "REF_energy"
+forces_key: "REF_forces"
+energy_weight: 1
+forces_weight: 10
+E0s: 
+  1: -13.7487804074635
+  8: -2045.41865185226
+device: cpu
+swa: false
+seed: SEED
+restart_latest: RESTART
