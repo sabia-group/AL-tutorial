@@ -1,29 +1,27 @@
 # ----------------------------------- #
-# Architecture
+# Architecture (customizable)
 # ----------------------------------- #
+num_channels     : 4
+max_L            : 0            
+max_ell          : 1          
+correlation      : 1      
+num_interactions : 2 
+num_radial_basis : 5
+num_cutoff_basis : 3
+r_max            : 3.0
 
+# Please, do not modify these parameters!
 model: "MACE"
-
-# You can modify the following parameters
-num_channels: 4
-max_L: 0            # take it larger but not smaller
-max_ell: 1          # take it larger but not smaller
-correlation: 1      # take it larger but not smaller
-num_interactions: 2 # take it larger but not smaller
-num_radial_basis: 5
-num_cutoff_basis: 3
-r_max: 3.0
 E0s: 
   1: -13.7487804074635
   8: -2045.41865185226
 default_dtype : DTYPE
 
 # ----------------------------------- #
-# Hyperparameters
+# Hyperparameters (customizable)
 # ----------------------------------- #
 batch_size: 4
 valid_batch_size: 4
-# valid_fraction: 0.2
 max_num_epochs: 1000
 patience: 20
 energy_weight: 1
@@ -31,7 +29,7 @@ forces_weight: 10
 swa: false
 
 # ----------------------------------- #
-# Datasets
+# Datasets (do not modify!)
 # ----------------------------------- #
 train_file     : "TRAIN_FILE"
 energy_key     : "REF_energy"
@@ -39,9 +37,8 @@ forces_key     : "REF_forces"
 
 
 # ----------------------------------- #
-# Bookkeeping
+# Bookkeeping (do not modify!)
 # ----------------------------------- #
-# Please, do not modify these parameters!
 name: "NAME"
 model_dir      : "TRAIN_FOLDER/models"
 log_dir        : "TRAIN_FOLDER/log"
