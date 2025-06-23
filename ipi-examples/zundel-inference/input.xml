@@ -18,10 +18,10 @@
             pot_component_raw(2){electronvolt}, 
             pot_component_raw(3){electronvolt} 
         ] </properties> 
-        <trajectory filename='mace_force_0' stride='20' format='ase'> forces_component_raw(0) </trajectory>
-        <trajectory filename='mace_force_1' stride='20' format='ase'> forces_component_raw(1) </trajectory>
-        <trajectory filename='mace_force_2' stride='20' format='ase'> forces_component_raw(2) </trajectory>
-        <trajectory filename='mace_force_3' stride='20' format='ase'> forces_component_raw(3) </trajectory>
+        <trajectory filename='mace_force_0' stride='20' format='xyz'> forces_component_raw(0){eV/ang} </trajectory>
+        <trajectory filename='mace_force_1' stride='20' format='xyz'> forces_component_raw(1){eV/ang} </trajectory>
+        <trajectory filename='mace_force_2' stride='20' format='xyz'> forces_component_raw(2){eV/ang} </trajectory>
+        <trajectory filename='mace_force_3' stride='20' format='xyz'> forces_component_raw(3){eV/ang} </trajectory>
     </output>
 
     <total_steps> 20000 </total_steps> <!-- it should dissociate at arund step 5000-->
