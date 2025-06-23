@@ -8,7 +8,7 @@ This tutorial illustrates the basic concepts of committee-based active learning 
 - Webpage of our research group: https://www.mpsd.mpg.de/research/groups/sabia
 - GitHub repository of this tutorial: https://github.com/sabia-group/AL-tutorial
 - MACE repository: https://github.com/ACEsuit/mace
-- ase repository: https://gitlab.com/ase/ase
+- `ase` repository: https://gitlab.com/ase/ase
 
 
 ## Installation
