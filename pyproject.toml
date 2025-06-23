@@ -9,6 +9,10 @@ dependencies = [
     "matplotlib",
     "ipi",
     "mace-torch",
+    "multiprocessing", # optional
+    "rich", # optional
+    "ase",
+    "tqdm"
 ]
 
 [build-system]
