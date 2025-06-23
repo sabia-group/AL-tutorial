@@ -5,6 +5,7 @@ version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = [
     "jupyter",
+    "ipywidgets",
     "numpy",
     "matplotlib",
     "ipi",
@@ -12,7 +13,8 @@ dependencies = [
     "multiprocessing", # optional
     "rich", # optional
     "ase",
-    "tqdm"
+    "tqdm",
+    "scipy"
 ]
 
 [build-system]
