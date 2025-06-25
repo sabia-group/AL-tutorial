@@ -2,13 +2,13 @@
 # Architecture (customizable)
 # ----------------------------------- #
 num_channels     : 16
-max_L            : 0            
-max_ell          : 1          
-correlation      : 1      
+max_L            : 1            
+max_ell          : 2          
+correlation      : 2      
 num_interactions : 2 
 num_radial_basis : 5
 num_cutoff_basis : 3
-r_max            : 3.0
+r_max            : 6.0
 
 # Please, do not modify these parameters!
 model: "MACE"
@@ -32,8 +32,8 @@ swa: false
 # Datasets (do not modify!)
 # ----------------------------------- #
 train_file     : "TRAIN_FILE"
-energy_key     : "REF_energy"
-forces_key     : "REF_forces"
+energy_key     : "energy"
+forces_key     : "forces"
 
 
 # ----------------------------------- #
