@@ -26,7 +26,10 @@ def extxyz2array(file:str,keyword:str="MACE_forces"):
     atoms = read(file, index=':')
     data = [None]*len(atoms)
     for n,atom in enumerate(atoms):
-        data[n] = atom.arrays[keyword]
+        if keyword == 'forces':
+            data[n] = atom.get_forces()
+        else:
+            data[n] = atom.arrays[keyword]
     try:
         return np.array(data)
     except:
