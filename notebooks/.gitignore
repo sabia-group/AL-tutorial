@@ -4,7 +4,6 @@ qbc-work/
 random-train/
 eigen-qbc-work/
 md/
-*.extxyz
 *.txt
 *.log
 !qbc-output.txt
