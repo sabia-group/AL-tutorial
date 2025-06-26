@@ -277,7 +277,9 @@ def run_qbc(init_train_folder:str,
     parallel : bool, optional
         Whether to train models in parallel (default True).
     """
-
+    print(f'Starting QbC.')
+    print(f"Please be sure that the config files use '{ofolder}/train-iter.extxyz' as training dataset.")
+    
     if recalculate_selected:
         assert calculator_factory is not None, "Must provide ASE calculator factory to recalculate energies and forces."
 
@@ -295,7 +297,10 @@ def run_qbc(init_train_folder:str,
     #-------------------------#
     # Copy initial models and checkpoints to output folder
     #-------------------------#
+    print(f"Copying checkpoints from '{init_train_folder}/checkpoints/' to '{ofolder}/checkpoints/'.")
     copy_files_in_folder(f"{init_train_folder}/checkpoints/", f"{ofolder}/checkpoints/")
+    
+    print(f"Copying models from '{init_train_folder}/models/' to '{ofolder}/models/'.")
     copy_files_in_folder(f"{init_train_folder}/models/", f"{ofolder}/models/")
     
     #-------------------------#
@@ -305,19 +310,28 @@ def run_qbc(init_train_folder:str,
     n_committee = len(glob.glob(os.path.join(model_dir, "mace.com=*_compiled.model")))
     assert n_committee > 1, "Committee must contain more than one model."
 
-    print(f'Starting QbC.')
+    
     print(f"Number of models in committee: {n_committee:d}")
     print(f"Number of iterations: {n_iter:d}")
     print(f"Number of new candidates added per iteration: {n_add_iter:d}")
-    print(f"Candidates file: {fn_candidates}")
-    print(f"Test dataset: {test_dataset}")
+    
+    print("\nPreparing files ...")
+    print(f"Candidates pool: '{fn_candidates}'")
+    print(f"Copying candidates pool from '{fn_candidates}' to '{ofolder}/candidates.start.extxyz'.")
+    shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
+    fn_candidates = f'{ofolder}/candidates.start.extxyz'
+    
+    if test_dataset is not None:
+        print(f"Test dataset: '{test_dataset}'")
+        print(f"Copying test dataset from '{test_dataset}' to '{ofolder}/structures/test.extxyz'.")
+        shutil.copy(test_dataset, f'{ofolder}/structures/test.extxyz')
+        test_dataset = f'{ofolder}/structures/test.extxyz'
+    else:
+        print("No test dataset provided")
     
     #-------------------------#
     # Load initial datasets
     #-------------------------#
-    shutil.copy(fn_candidates, f'{ofolder}/candidates.start.extxyz')
-    fn_candidates = f'{ofolder}/candidates.start.extxyz'
-    
     candidates: List[Atoms] = read(fn_candidates, index=':')
     training_set: List[Atoms] = read(init_train_file, index=':')
     progress_disagreement = [None]*n_iter
@@ -381,12 +395,14 @@ def run_qbc(init_train_folder:str,
         #-------------------------# 
         disagreement = 1000*forces2disagreement(forces)  # Calculate atomic-level disagreement
         avg_disagreement_pool = disagreement.mean()
+        print(f'\n\t    Disagreement (pool average): {avg_disagreement_pool:06f} meV/ang')
 
         # Select top candidates with highest disagreement
         print(f'\t    Selecting {n_add_iter:d} candidates with highest disagreement.')
         idcs_selected = np.argsort(disagreement)[-n_add_iter:]
         disagreement_selected = disagreement[idcs_selected]
         avg_disagreement_selected = disagreement_selected.mean()
+        print(f'\n\t    Disagreement (selected candidates): {avg_disagreement_selected:06f} meV/ang')
         
         progress_disagreement[iter] = np.array([avg_disagreement_selected,
                                                avg_disagreement_pool,
@@ -452,7 +468,7 @@ def run_qbc(init_train_folder:str,
         # 4) Retrain committee models with updated training set
         #-------------------------#
         start_time_train = time.time()
-        print(f'\t    Retraining committee models.')
+        print(f'\n\t    Retraining committee models.')
         
         global GLOBAL_CONFIG_PATH
         GLOBAL_CONFIG_PATH = config
@@ -463,6 +479,9 @@ def run_qbc(init_train_folder:str,
         else:
             for n in range(n_committee):
                 train_single_model(n)
+                
+        for n in range(n_committee):
+            os.remove(f"{ofolder}/models/mace.com={n}.model")
         
         end_time_train = time.time()
         elapsed = end_time_train - start_time_train
@@ -471,18 +490,14 @@ def run_qbc(init_train_folder:str,
         #-------------------------#
         # Summary of iteration results
         #-------------------------#
-        print(f'\n\t    Results:')
-        print(f'\t    Disagreement (pool average): {avg_disagreement_pool:06f} meV/ang')
-        print(f'\t    Disagreement (selected candidates): {avg_disagreement_selected:06f} meV/ang')
-        print(f'\t    Training set size now: {len(training_set):d}')
-        print(f'\t    Candidate set size now: {len(candidates):d}')
-        
         end_time = time.time()
         end_datetime = datetime.now()
         elapsed = end_time - start_time
 
-        print(f'\t    Ended at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
+        print(f'\n\t    Ended iteration at:   {end_datetime.strftime("%Y-%m-%d %H:%M:%S")}')
         print(f'\t    Iteration duration: {elapsed:.2f} seconds')
+        print(f'\n\t    Training set size now: {len(training_set):d}')
+        print(f'\t    Candidate set size now: {len(candidates):d}')
         
         header = "\
 selected-mean\n\
@@ -493,6 +508,8 @@ training-set-size\n\
 candidate-set-size\
 "
         np.savetxt(f'{ofolder}/disagreement.txt', np.array(progress_disagreement[:iter+1]), header=header, fmt='%12.8f')
+        print(f"\t    Updated '{ofolder}/disagreement.txt'")
+        
         
     #-------------------------#
     # Finalize QbC process
