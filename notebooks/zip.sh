@@ -11,3 +11,7 @@ zip -r ../checkpoints/qbc-work.zip qbc-work \
  -x "qbc-work/structures/*" \
  -x "qbc-work/log/*" \
  -x "qbc-work/eval/train.*"
+
+zip -r ../checkpoints/random-train.zip random-train \
+ -x "init-train/checkpoints/*" \
+ -x "init-train/results/*"
