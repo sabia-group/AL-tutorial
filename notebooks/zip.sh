@@ -7,7 +7,6 @@ zip -r ../checkpoints/init-train.zip init-train \
 
 zip -r ../checkpoints/qbc-work.zip qbc-work \
  -x "qbc-work/.ipynb_checkpoints/*.model" \
- -x "qbc-work/checkpoints/*" \
  -x "qbc-work/results/*" \
  -x "qbc-work/structures/candidates.*" \
  -x "qbc-work/structures/train-*" \
