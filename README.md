@@ -44,5 +44,5 @@ python tests/check.py
 ```
 
 ## References
-These tutorials are based on the following works:
-
+These tutorials are based on the following work:
+- [Schran C., Brezina K., Marsalek O. JCP, 153, 104105, 2020](https://doi.org/10.1063/5.0016004)
