@@ -1,5 +1,5 @@
 Starting QbC.
-Please be sure that the config files use 'qbc-work/train.iter.extxyz' as training dataset.
+Please be sure that the config files use 'qbc-work/train-iter.extxyz' as training dataset.
 Copying checkpoints from 'init-train/checkpoints/' to 'qbc-work/checkpoints/'.
 Copying models from 'init-train/models/' to 'qbc-work/models/'.
 Number of models in committee: 4
@@ -7,30 +7,35 @@ Number of iterations: 15
 Number of new candidates added per iteration: 10
 
 Preparing files ...
-Candidates file: init-train/structures/candidates.extxyz
+Candidates pool: 'init-train/structures/candidates.extxyz'
 Copying candidates pool from 'init-train/structures/candidates.extxyz' to 'qbc-work/candidates.start.extxyz'.
-Test dataset: init-train/structures/test.extxyz
+Test dataset: 'init-train/structures/test.extxyz'
 Copying test dataset from 'init-train/structures/test.extxyz' to 'qbc-work/structures/test.extxyz'.
 
 	--------------------------------------------------------------------
 	Starting QbC iteration 1/15
 
-	    Started at: 2025-06-26 13:56:16
+	    Started at: 2025-06-26 14:31:48
 	    Evaluating committee disagreement across candidate pool.
-	    Evaluation duration: 216.19 seconds
-	    Disagreement (pool average): 64.618138 meV/ang
+	    Evaluation duration: 154.98 seconds
+
+	    Disagreement (pool average): 62.218463 meV/ang
 	    Selecting 10 candidates with highest disagreement.
-	    Disagreement (selected candidates): 180.087672 meV/ang
+
+	    Disagreement (selected candidates): 136.517570 meV/ang
 
 	    Retraining committee models.
-	    Training duration: 98.51 seconds
-	    Ended iteration at:   2025-06-26 14:01:33
-	    Iteration duration: 316.86 seconds
+	    Training duration: 75.52 seconds
+
+	    Ended iteration at:   2025-06-26 14:35:40
+	    Iteration duration: 231.80 seconds
+
 	    Training set size now: 30
 	    Candidate set size now: 9921
+	    Updated 'qbc-work/disagreement.txt'
 
 	--------------------------------------------------------------------
 	Starting QbC iteration 2/15
 
-	    Started at: 2025-06-26 14:01:33
+	    Started at: 2025-06-26 14:35:40
 	    Evaluating committee disagreement across candidate pool.
