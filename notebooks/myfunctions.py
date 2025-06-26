@@ -14,6 +14,7 @@ def extxyz2energy(file:str,keyword:str="MACE_energy"):
     """Extracts the energy values from an extxyz file and returns a numpy array
     """
     atoms = read(file, index=':')
+    atoms = [ _correct_read(a) for a in atoms ]
     data = np.zeros(len(atoms),dtype=float)
     for n,atom in enumerate(atoms):
         data[n] = atom.info[keyword]
@@ -24,12 +25,10 @@ def extxyz2array(file:str,keyword:str="MACE_forces"):
     """Extracts the energy values from an extxyz file and returns a numpy array
     """
     atoms = read(file, index=':')
+    atoms = [ _correct_read(a) for a in atoms ]
     data = [None]*len(atoms)
     for n,atom in enumerate(atoms):
-        if keyword == 'forces':
-            data[n] = atom.get_forces()
-        else:
-            data[n] = atom.arrays[keyword]
+        data[n] = atom.arrays[keyword]
     try:
         return np.array(data)
     except:
@@ -58,6 +57,7 @@ def eval_mace(model:str,infile:str,outfile:str,dtype:str="float32",batch_size:in
         with redirect_stdout(fnull), redirect_stderr(fnull):
             mace_eval_configs_main()
 
+#-------------------------#
 def eval_and_extract(args):
     model, fn_in, fn_out, xtr = args
     eval_mace(model, fn_in, fn_out)
