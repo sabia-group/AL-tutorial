@@ -7,3 +7,4 @@ md/
 *.extxyz
 *.txt
 *.log
+!qbc-output.txt
