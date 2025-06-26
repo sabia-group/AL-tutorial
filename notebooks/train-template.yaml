@@ -32,8 +32,8 @@ swa: false
 # Datasets (do not modify!)
 # ----------------------------------- #
 train_file     : "TRAIN_FILE"
-energy_key     : "energy"
-forces_key     : "forces"
+energy_key     : "REF_energy"
+forces_key     : "REF_forces"
 
 
 # ----------------------------------- #
