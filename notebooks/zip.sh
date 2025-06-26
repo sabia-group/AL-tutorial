@@ -1,4 +1,4 @@
-#!/bin/bas
+#!/bin/bash
 zip -r ../checkpoints/init-train.zip init-train \
  -x "init-train/checkpoints/*.model" \
  -x "init-train/eval/*" \
