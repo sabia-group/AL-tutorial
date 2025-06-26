@@ -1,0 +1,13 @@
+zip -r ../checkpoints/init-train.zip init-train \
+ -x "init-train/checkpoints/*" \
+ -x "init-train/eval/*" \
+ -x "init-train/results/*"
+
+
+zip -r ../checkpoints/qbc-work.zip qbc-work \
+ -x "qbc-work/.ipynb_checkpoints/*" \
+ -x "qbc-work/checkpoints/*" \
+ -x "qbc-work/results/*" \
+ -x "qbc-work/structures/*" \
+ -x "qbc-work/log/*" \
+ -x "qbc-work/eval/train.*"
