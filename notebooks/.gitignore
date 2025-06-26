@@ -1,6 +1,7 @@
 aims/
 init-train/
 qbc-work/
+random-train/
 eigen-qbc-work/
 md/
 *.extxyz
