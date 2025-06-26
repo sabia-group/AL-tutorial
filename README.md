@@ -18,6 +18,15 @@ You will find two tutorials in the `notebook` folder:
 
 ## Installation
 
+### System Dependencies
+
+This tutorial requires the system package `python3-tk` for GUI support (used by `ase` and related tools).  
+Please install it before proceeding:
+
+```bash
+sudo apt-get install python3-tk
+```
+
 ### Option 1: Using `pip` (recommended for simplicity)
 
 Create and activate a virtual environment and install the package and its dependencies through the `pyproject.toml` file:
