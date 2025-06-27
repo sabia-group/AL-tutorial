@@ -1,24 +1,27 @@
 #!/bin/bash
-source "${IPIPATH}/env.sh"
+set -e
+#source "${IPIPATH}/env.sh"
 
-echo "Starting i-PI socket server..."
-export OMP_NUM_THREADS=4
-i-pi input.xml > ipi.log 2>&1 &
+SOCKET=true
+#model_folder="../../checkpoints/models"
+model_folder="../../notebooks/qbc-work/models"
 
-# Optional: wait until i-PI socket is ready instead of fixed sleep
-# Use a more robust method, e.g., checking for socket existence
-# This is a placeholder sleep; update with actual condition if needed
-sleep 5
+if ${SOCKET}; then # parallel: this should be faster because the MACE models are run in parallel
+    echo "Starting i-PI socket server..."
+    i-pi input.xml &
+    #i-pi RESTART &
 
-# Launch all drivers
-for n in {0..3}; do
-    echo "Starting driver $n..."
-    i-pi-py_driver -u -a address-${n} -m mace -o template=start.extxyz,model=mace.com=${n}_compiled.model &
-done
+    sleep 5  # or better: wait until socket files exist
 
-# Wait for all background processes (drivers) to finish
-wait
+    for n in {0..3}; do
+        echo "Starting driver $n..."
+        i-pi-py_driver -u -a address-${n} -m mace -o template=start.extxyz,model=${model_folder}/mace.com=${n}_compiled.model &
+    done
 
-# Post-processing
-# echo "Running post-processing..."
-# python ../post-process.py -i ipi.pos_0.extxyz -o eigen-inference.extxyz
+    wait
+else # serial
+    echo "Starting i-PI in direct mode..."
+    i-pi committee4nvt.ffdirect.xml
+fi
+
+python ../post-process.py -i ipi.pos_0.extxyz -o eigen-inference.extxyz

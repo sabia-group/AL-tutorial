@@ -525,3 +525,76 @@ candidate-set-size\
     os.remove(f'{ofolder}/train-iter.extxyz')
     
     return
+
+from ase.calculators.calculator import Calculator, all_changes, all_properties
+import logging
+
+_shared_logger = None  # Global singleton
+
+def get_shared_logger(log_path='fhi_aims_calculator.log'):
+    global _shared_logger
+    if _shared_logger is None:
+        logger = logging.getLogger("FHIaimsLogger")
+        logger.setLevel(logging.INFO)
+        logger.propagate = False  # Avoid duplicate output if root logger is also configured
+
+        # Create handler only once
+        handler = logging.FileHandler(log_path, mode='a')
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+        _shared_logger = logger
+    return _shared_logger
+    
+class FHIaimsCalculator(Calculator):
+    implemented_properties = ['energy', 'free_energy', 'forces', 'stress']
+
+    # Shared logger
+    logger = get_shared_logger()
+
+    def __init__(self, aims_command, control_file, directory='.', output_path="aims.out", **kwargs):
+        super().__init__(**kwargs)
+        self.aims_command = aims_command
+        self.control_file = control_file
+        self.directory = directory
+        self.output_path = output_path
+
+    def calculate(self, atoms: Atoms = None, properties=all_properties, system_changes=all_changes):
+        super().calculate(atoms, properties, system_changes)
+        os.makedirs(self.directory, exist_ok=True)
+
+        # Paths
+        geom_path = os.path.join(self.directory, 'geometry.in')
+        control_path = os.path.join(self.directory, 'control.in')
+        output_path = os.path.join(self.directory, self.output_path)
+
+        cmd = f"{self.aims_command} > {self.output_path} 2>/dev/null"
+        self.logger.info(f"Running AIMS command: {cmd}")
+        run_single_aims_structure(atoms, self.directory, cmd, self.control_file)
+
+        # After run: check output
+        if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+            self.logger.error(f"AIMS output not found or empty in {output_path}")
+            raise RuntimeError(f"AIMS calculation failed in '{self.directory}'")
+
+        try:
+            output_atoms = read(output_path, format="aims-output")
+        except Exception as e:
+            self.logger.error(f"Failed to read AIMS output in {output_path}: {e}")
+            raise RuntimeError(f"Failed to parse AIMS output: {e}")
+
+
+        try:
+            output_atoms = read(output_path, format="aims-output")
+        except Exception as e:
+            self.logger.error(f"Failed to parse output at {output_path}: {e}")
+            raise e
+
+        self.results = {
+            "energy": output_atoms.get_potential_energy(),
+            "free_energy": output_atoms.get_potential_energy(),
+            "forces": output_atoms.get_forces(),
+            "stress": np.zeros(6)
+        }
+        self.logger.info(f"Calculation completed in '{self.directory}'")

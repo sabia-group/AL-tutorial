@@ -3,7 +3,7 @@
     <output prefix='ipi'>
         <properties stride='20' filename='mean_properties.out'> [ 
             step, 
-            time{picosecond}, 
+            time{femtosecond}, 
             conserved{electronvolt}, 
             kinetic_md{electronvolt}, 
             potential{electronvolt}, 
@@ -18,30 +18,35 @@
             pot_component_raw(2){electronvolt}, 
             pot_component_raw(3){electronvolt} 
         ] </properties> 
-        <trajectory filename='mace_force_0' stride='20' format='xyz'> forces_component_raw(0){eV/ang} </trajectory>
-        <trajectory filename='mace_force_1' stride='20' format='xyz'> forces_component_raw(1){eV/ang} </trajectory>
-        <trajectory filename='mace_force_2' stride='20' format='xyz'> forces_component_raw(2){eV/ang} </trajectory>
-        <trajectory filename='mace_force_3' stride='20' format='xyz'> forces_component_raw(3){eV/ang} </trajectory>
+        <trajectory filename='mace_force_0' stride='20' format='ase'> forces_component_raw(0) </trajectory>
+        <trajectory filename='mace_force_1' stride='20' format='ase'> forces_component_raw(1) </trajectory>
+        <trajectory filename='mace_force_2' stride='20' format='ase'> forces_component_raw(2) </trajectory>
+        <trajectory filename='mace_force_3' stride='20' format='ase'> forces_component_raw(3) </trajectory>
     </output>
 
     <total_steps> 20000 </total_steps> <!-- it should dissociate at arund step 5000-->
     <prng> <seed> 32342 </seed> </prng>
 
-    <ffsocket name='mace-0' mode='unix'>
-        <address> address-0 </address>
-    </ffsocket>
+    <!-- <ffcommittee name="committee"> -->
+        <!-- <active_output> active </active_output> -->
 
-    <ffsocket name='mace-1' mode='unix'>
-        <address> address-1 </address>
-    </ffsocket>
+        <ffsocket name='mace-0' mode='unix'>
+            <address> address-0 </address>
+        </ffsocket>
 
-    <ffsocket name='mace-2' mode='unix'>
-        <address> address-2 </address>
-    </ffsocket>
+        <ffsocket name='mace-1' mode='unix'>
+            <address> address-1 </address>
+        </ffsocket>
 
-    <ffsocket name='mace-3' mode='unix'>
-        <address> address-3 </address>
-    </ffsocket>
+        <ffsocket name='mace-2' mode='unix'>
+            <address> address-2 </address>
+        </ffsocket>
+
+        <ffsocket name='mace-3' mode='unix'>
+            <address> address-3 </address>
+        </ffsocket>
+
+    <!-- </ffcommittee> -->
 
     <system>
 
