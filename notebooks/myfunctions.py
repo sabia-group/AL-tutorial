@@ -189,8 +189,9 @@ def _run_single_aims(workdir: str, command: str) -> Atoms:
     try:
         os.chdir(workdir)
         # Suppress both stdout and stderr
-        #os.system(f"ulimit -s unlimited && {command} ")
-        os.system(f"ulimit -s hard && {command} ")
+        os.system(f"ulimit -s unlimited && {command} ")
+        # if using mac os uncomment the following line
+        # os.system(f"ulimit -s hard && {command} ")
     finally:
         os.chdir(original_folder)
     
